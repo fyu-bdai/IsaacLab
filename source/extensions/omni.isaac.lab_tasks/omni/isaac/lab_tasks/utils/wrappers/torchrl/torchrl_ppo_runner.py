@@ -36,6 +36,7 @@ from numbers import Real
 
 if TYPE_CHECKING:
     from .torchrl_ppo_runner_cfg import OnPolicyPPORunnerCfg
+    from torchrl.trainers import Trainer
 
 class NormalWrapper(Normal):
     def __init__(self, loc, scale, max_scale: float | None = None, validate_args=None):
@@ -74,7 +75,7 @@ class OnPolicyPPORunner:
         self.value_network_cfg = self.loss_module_cfg.value_network
         self.device = device
         self.env = env
-        num_envs = self.env.unwrapped.num_envs
+        self.num_envs = self.env.unwrapped.num_envs
 
         self.pre_optim_time_start = 0
 
@@ -89,7 +90,7 @@ class OnPolicyPPORunner:
             in_keys=self.actor_network_cfg.in_keys, 
             out_keys=["loc", "scale"],
         )
-        actor_module = ProbabilisticActor(
+        self.actor_module = ProbabilisticActor(
             spec=env.action_spec,
             module=actor_td,
             in_keys=["loc", "scale"],
@@ -99,20 +100,22 @@ class OnPolicyPPORunner:
         )
         # create the critic module
         critic_network.to(device=self.device)
-        value_module = ValueOperator(
+        self.value_module = ValueOperator(
             module=critic_network,
             in_keys=self.value_network_cfg.in_keys,
             out_keys=self.value_network_cfg.out_keys,
         )
 
-        # register info dict for logging rewards from extras dict
-        keys = env.unwrapped.extras
-        info_spec = CompositeSpec({key: UnboundedContinuousTensorSpec([env.unwrapped.num_envs]) for key in keys}, shape=[env.unwrapped.num_envs])
-        env.set_info_dict_reader(InfoDictReaderWrapper(spec=info_spec))
+    def _create_trainer(self, eval_mode: bool = False) -> Trainer:
+        """Creates TorchRL trainer module"""
+        # register info dict for logging rewards from IsaacLab extras dict
+        keys = self.env.unwrapped.extras
+        info_spec = CompositeSpec({key: UnboundedContinuousTensorSpec([self.num_envs]) for key in keys}, shape=[self.num_envs])
+        self.env.set_info_dict_reader(InfoDictReaderWrapper(spec=info_spec))
 
-        loss_module = ClipPPOLossWrapper(
-            actor_network=actor_module,
-            critic_network=value_module,
+        self.loss_module = ClipPPOLossWrapper(
+            actor_network=self.actor_module,
+            critic_network=self.value_module,
             clip_epsilon=self.loss_module_cfg.clip_param,
             loss_critic_type=self.loss_module_cfg.loss_critic_type,
             desired_kl=self.loss_module_cfg.desired_kl,
@@ -124,21 +127,20 @@ class OnPolicyPPORunner:
             clip_value=self.loss_module_cfg.clip_param,
             device=self.device
         )
-
         self.advantage_module = GAE(
             gamma=self.loss_module_cfg.gamma,
             lmbda=self.loss_module_cfg.lam,
-            value_network=value_module,
+            value_network=self.value_module,
             vectorized=True,
             average_gae=True
         )
         
-        total_frames=self.cfg.num_steps_per_env*num_envs*self.cfg.max_iterations
-        frames_per_batch = self.cfg.num_steps_per_env*num_envs
+        total_frames=self.cfg.num_steps_per_env*self.num_envs*self.cfg.max_iterations
+        frames_per_batch = self.cfg.num_steps_per_env*self.num_envs
 
-        collector = SyncDataCollectorWrapper(
-            create_env_fn=env, 
-            policy=actor_module,
+        self.collector = SyncDataCollectorWrapper(
+            create_env_fn=self.env, 
+            policy=self.actor_module,
             frames_per_batch=frames_per_batch,
             total_frames=total_frames,
             split_trajs=self.collector_module_cfg.split_trajs,
@@ -146,29 +148,28 @@ class OnPolicyPPORunner:
             set_truncated=False,
             device=self.device
         )
-
-        optimizer = torch.optim.Adam(loss_module.parameters(), lr=self.loss_module_cfg.learning_rate)
-
-        if self.cfg.logger == "wandb":
-            self.logger_module = WandbLoggerWrapper(
-                exp_name=self.cfg.experiment_name,
-                project=self.cfg.wandb_project,
-                save_dir=log_dir,
-            )
-            self.logger_module.log_config(env.unwrapped.cfg)
-        elif self.cfg.logger == "tensorboard":
-            self.logger_module = TensorboardLogger(
-                exp_name=self.cfg.experiment_name,
-                log_dir=log_dir
-            )
-        else:
-            raise RuntimeError("logger must be either `wandb` or `tensorboard`")
+    
+        optimizer = torch.optim.Adam(self.loss_module.parameters(), lr=self.loss_module_cfg.learning_rate)
+        self.logger_module = None 
+        if not eval_mode:
+            if self.cfg.logger == "wandb":
+                self.logger_module = WandbLoggerWrapper(
+                    exp_name=self.cfg.experiment_name,
+                    project=self.cfg.wandb_project,
+                    save_dir=self.log_dir,
+                )
+                self.logger_module.log_config(self.env.unwrapped.cfg)
+            elif self.cfg.logger == "tensorboard":
+                self.logger_module = TensorboardLogger(
+                    exp_name=self.cfg.experiment_name,
+                    log_dir=self.log_dir
+                )
         
         policy_save_interval = self.cfg.save_trainer_interval*(frames_per_batch - 1)
 
         self.trainer_module = TrainerWrapper(
-            collector=collector,
-            loss_module=loss_module,
+            collector=self.collector,
+            loss_module=self.loss_module,
             total_frames=total_frames,
             frame_skip=1,
             optimizer=optimizer,
@@ -180,7 +181,7 @@ class OnPolicyPPORunner:
             save_trainer_interval=policy_save_interval,
             log_interval=frames_per_batch,
             lr_schedule=self.cfg.lr_schedule,
-            save_trainer_file=f"{log_dir}/model.pt" 
+            save_trainer_file=f"{self.log_dir}/model.pt" 
         )
         self.trainer_module.register_module(module_name="advantage_module", module=self.advantage_module)
         self.trainer_module.register_op("batch_process", self.compute_advantages)
@@ -194,22 +195,24 @@ class OnPolicyPPORunner:
         self.trainer_module.register_op("pre_steps_log", self.log_episode_stats)
 
         # upload video to wandb 
-        if hasattr(env.unwrapped, "video_recorder") and self.cfg.logger == "wandb":
+        if hasattr(self.env.unwrapped, "video_recorder") and self.cfg.logger == "wandb":
             self.trainer_module.register_op("post_steps_log", self.upload_training_video, log_name="Video", fps=30)
 
+        return self.trainer_module
+     
     def learn(self, init_at_random_ep_len: bool = False):
+        trainer_module = self._create_trainer()
         if init_at_random_ep_len:
             self.env.unwrapped.episode_length_buf = torch.randint_like(
                 self.env.unwrapped.episode_length_buf, high=int(self.env.unwrapped.max_episode_length)
             )
 
-        self.trainer_module.train()
+        trainer_module.train()
 
-    def load(self, path, load_optimizer=True):
+    def load(self, path, eval_mode: bool = False):
         loaded_dict = torch.load(path, weights_only=False)
-        self.trainer_module.load_from_file(path)
-        if load_optimizer:
-            self.trainer_module.optimizer.load_state_dict(loaded_dict["optimizer"])
+        trainer = self._create_trainer(eval_mode=eval_mode)
+        trainer.load_from_file(path)
         return loaded_dict["state"]
 
     def save_cfg(self):

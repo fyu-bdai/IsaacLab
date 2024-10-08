@@ -82,7 +82,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg, agent_cfg: OnPolicyPPORunnerCfg):
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
 
     # specify directory for logging experiments
-    log_root_path = os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)
+    log_root_path = os.path.join("logs", "torchrl", agent_cfg.experiment_name)
     log_root_path = os.path.abspath(log_root_path)
     print(f"[INFO] Logging experiment in directory: {log_root_path}")
     # specify directory for logging runs: {time-stamp}_{run_name}
@@ -116,7 +116,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg, agent_cfg: OnPolicyPPORunnerCfg):
         resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
         print(f"[INFO]: Loading model checkpoint from: {resume_path}")
         # load previously trained model
-        runner.load(resume_path)
+        runner.load(resume_path, eval_mode=False)
 
     env.unwrapped.seed(agent_cfg.seed)
 

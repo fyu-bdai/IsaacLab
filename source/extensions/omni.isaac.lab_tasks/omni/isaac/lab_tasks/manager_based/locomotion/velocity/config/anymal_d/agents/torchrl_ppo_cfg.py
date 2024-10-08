@@ -12,44 +12,37 @@ from omni.isaac.lab_tasks.utils.wrappers.torchrl.torchrl_ppo_runner_cfg import (
         OnPolicyPPORunnerCfg)
 
 class AnymalDActorNN(nn.Module):
-    # required to enable conversions to dict
-    __name__ = "AnymalDActorNN"
     def __init__(self):
         super().__init__()
-        self.layer1 = nn.Linear(in_features=48, out_features=512, bias=True)
-        self.layer2 = nn.Linear(in_features=512, out_features=256, bias=True)
-        self.layer3 = nn.Linear(in_features=256, out_features=128, bias=True)
-        self.layer4 = nn.Linear(in_features=128, out_features=12*2, bias=True)
-        self.elu = nn.ELU(alpha=1.0)
+        self.model = nn.Sequential(
+            nn.Linear(in_features=48, out_features=512, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=512, out_features=256, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=256, out_features=128, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=128, out_features=12*2, bias=True)
+        )
 
     def forward(self, x):
-        x = self.elu(self.layer1(x))
-        x = self.elu(self.layer2(x))
-        x = self.elu(self.layer3(x))
-        x = self.layer4(x)  
-        return x
+        return self.model(x)
 
 class AnymalDCriticNN(nn.Module):
-    # required to enable conversions to dict
-    __name__ = "AnymalDCriticNN"
     def __init__(self):
         super().__init__()
-        self.layer1 = nn.Linear(in_features=48, out_features=512, bias=True)
-        self.layer2 = nn.Linear(in_features=512, out_features=256, bias=True)
-        self.layer3 = nn.Linear(in_features=256, out_features=128, bias=True)
-        self.layer4 = nn.Linear(in_features=128, out_features=1, bias=True)
-        self.elu = nn.ELU(alpha=1.0)
-        # required to enable conversions to dict
-        self.__name__ = self.__class__.__name__
-
+        self.model = nn.Sequential(
+            nn.Linear(in_features=48, out_features=512, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=512, out_features=256, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=256, out_features=128, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=128, out_features=1, bias=True)
+        )
 
     def forward(self, x):
-        x = self.elu(self.layer1(x))
-        x = self.elu(self.layer2(x))
-        x = self.elu(self.layer3(x))
-        x = self.layer4(x)  
-        return x
-
+        return self.model(x)
+    
 @configclass
 class AnymalDActorModule(ProbabilisticActorCfg):
 
@@ -111,7 +104,7 @@ class AnymalDPPOLossModule(ClipPPOLossCfg):
 
     clip_param = 0.2 
 
-    entropy_coef = 0.025
+    entropy_coef = 0.0025
 
     entropy_bonus = True
 

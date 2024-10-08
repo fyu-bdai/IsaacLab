@@ -5,10 +5,7 @@
 
 """Wrappers and utilities to configure an :class:`ManagerBasedRLEnv` for TorchRL library."""
 
-# from .exporter import export_policy_as_jit, export_policy_as_onnx
-# from .rl_cfg import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
-# from .vecenv_wrapper import RslRlVecEnvWrapper
-
+from .exporter import export_policy_as_onnx
 from .torchrl_ppo_runner_cfg import OnPolicyPPORunnerCfg
 from .torchrl_ppo_runner import OnPolicyPPORunner
 from .torchrl_env_wrapper import TorchRLEnvWrapper
