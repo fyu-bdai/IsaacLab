@@ -518,20 +518,29 @@ class AppLauncher:
 
         # If nothing is provided resolve the experience file based on the headless flag
         kit_app_exp_path = os.environ["EXP_PATH"]
-        isaaclab_app_exp_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), *[".."] * 6, "apps")
+        isaaclab_app_exp_path = os.getenv(
+            "USER_EXP_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), *[".."] * 6, "apps")
+        )
         if self._sim_experience_file == "":
-            # check if the headless flag is setS
+            # check if the headless flag is set
             if self._enable_cameras:
                 if self._headless and not self._livestream:
-                    self._sim_experience_file = os.path.join(
-                        isaaclab_app_exp_path, "isaaclab.python.headless.rendering.kit"
-                    )
+                    pattern = r".*\.python\.headless\.rendering\.kit$"
                 else:
-                    self._sim_experience_file = os.path.join(isaaclab_app_exp_path, "isaaclab.python.rendering.kit")
+                    pattern = r".*\.python\.rendering\.kit$"
             elif self._headless and not self._livestream:
-                self._sim_experience_file = os.path.join(isaaclab_app_exp_path, "isaaclab.python.headless.kit")
+                pattern = r".*\.python\.headless\.kit$"
             else:
-                self._sim_experience_file = os.path.join(isaaclab_app_exp_path, "isaaclab.python.kit")
+                pattern = r".*\.python\.kit$"
+            matching_file = match_file(isaaclab_app_exp_path, pattern)
+            if matching_file is not None:
+                self._sim_experience_file = os.path.join(isaaclab_app_exp_path, matching_file)
+            else:
+                raise FileNotFoundError(
+                    f"Unable to find file matching the pattern {pattern} in directory {isaaclab_app_exp_path}."
+                    "You can adjust the directory with envar 'USER_EXP_PATH', or by default experience files"
+                    "will be searched for in /isaaclab/source/apps."
+                )
         elif not os.path.isabs(self._sim_experience_file):
             option_1_app_exp_path = os.path.join(kit_app_exp_path, self._sim_experience_file)
             option_2_app_exp_path = os.path.join(isaaclab_app_exp_path, self._sim_experience_file)
@@ -681,3 +690,22 @@ class AppLauncher:
         """Handle the abort/segmentation/kill signals."""
         # close the app
         self._app.close()
+
+
+def match_file(directory: str, pattern: str) -> str | None:
+    """
+    Return the path as a string first match to a regex pattern in a given directory,
+    or return None if no files match the pattern
+
+    Args:
+        directory: Directory to search for pattern
+        pattern: Regex pattern the file should match
+
+    Returns:
+        The file name if matched or None if no matching file was found.
+
+    """
+    for filename in os.listdir(directory):
+        if re.match(pattern, filename):
+            return filename
+    return None

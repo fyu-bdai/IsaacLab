@@ -13,6 +13,7 @@ from tensordict import TensorDict
 from typing import TYPE_CHECKING, Any, Literal
 
 import carb
+import omni.isaac.core.utils.stage as stage_utils
 import omni.kit.commands
 import omni.usd
 from omni.isaac.core.prims import XFormPrimView
@@ -21,11 +22,10 @@ from pxr import UsdGeom
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.utils import to_camel_case
 from omni.isaac.lab.utils.array import convert_to_torch
-from omni.isaac.lab.utils.math import quat_from_matrix
+from omni.isaac.lab.utils.math import convert_orientation_convention, create_rotation_matrix_from_view, quat_from_matrix
 
 from ..sensor_base import SensorBase
 from .camera_data import CameraData
-from .utils import convert_orientation_convention, create_rotation_matrix_from_view
 
 if TYPE_CHECKING:
     from .camera_cfg import CameraCfg
@@ -339,8 +339,10 @@ class Camera(SensorBase):
         # resolve env_ids
         if env_ids is None:
             env_ids = self._ALL_INDICES
+        # get up axis of current stage
+        up_axis = stage_utils.get_stage_up_axis()
         # set camera poses using the view
-        orientations = quat_from_matrix(create_rotation_matrix_from_view(eyes, targets, device=self._device))
+        orientations = quat_from_matrix(create_rotation_matrix_from_view(eyes, targets, up_axis, device=self._device))
         self._view.set_world_poses(eyes, orientations, env_ids)
 
     """
@@ -348,10 +350,10 @@ class Camera(SensorBase):
     """
 
     def reset(self, env_ids: Sequence[int] | None = None):
-        if not self._is_initialized:
-            raise RuntimeError(
-                "Camera could not be initialized. Please ensure --enable_cameras is used to enable rendering."
-            )
+        # if not self._is_initialized:
+        #     raise RuntimeError(
+        #         "Camera could not be initialized. Please ensure --enable_cameras is used to enable rendering."
+            # )
         # reset the timestamps
         super().reset(env_ids)
         # resolve None
@@ -378,12 +380,12 @@ class Camera(SensorBase):
             RuntimeError: If the number of camera prims in the view does not match the number of environments.
             RuntimeError: If replicator was not found.
         """
-        carb_settings_iface = carb.settings.get_settings()
-        if not carb_settings_iface.get("/isaaclab/cameras_enabled"):
-            raise RuntimeError(
-                "A camera was spawned without the --enable_cameras flag. Please use --enable_cameras to enable"
-                " rendering."
-            )
+        # carb_settings_iface = carb.settings.get_settings()
+        # if not carb_settings_iface.get("/isaaclab/cameras_enabled"):
+        #     raise RuntimeError(
+        #         "A camera was spawned without the --enable_cameras flag. Please use --enable_cameras to enable"
+        #         " rendering."
+        #     )
 
         import omni.replicator.core as rep
         from omni.syntheticdata.scripts.SyntheticData import SyntheticData

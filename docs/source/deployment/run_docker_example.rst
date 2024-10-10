@@ -18,7 +18,7 @@ To build the Isaac Lab container from the root of the Isaac Lab repository, we w
 
 .. code-block:: console
 
-   python docker/container.py start
+   ./docker/container.py start
 
 
 The terminal will first pull the base IsaacSim image, build the Isaac Lab image's additional layers on top of it, and run the Isaac Lab container.
@@ -29,15 +29,15 @@ everything has been set up correctly, a container with the ``NAME`` **isaac-lab-
 
 .. code-block:: console
 
-   CONTAINER ID   IMAGE               COMMAND   CREATED           STATUS         PORTS     NAMES
-   483d1d5e2def   isaac-lab-base      "bash"    30 seconds ago   Up 30 seconds             isaac-lab-base
+   CONTAINER ID   IMAGE           NAME            COMMAND   CREATED          STATUS
+   483d1d5e2def   isaac-lab-base  isaac-lab-base  "bash"    30 seconds ago   Up 30 seconds
 
 
 Once the container is up and running, we can enter it from our terminal.
 
 .. code-block:: console
 
-   python docker/container.py enter
+   ./docker/container.py enter
 
 
 On entering the Isaac Lab container, we are in the terminal as the superuser, ``root``. This environment contains a copy of the

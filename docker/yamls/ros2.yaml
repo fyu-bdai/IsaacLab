@@ -1,0 +1,13 @@
+# Extension of base.yaml to support the 'ros2' stage of the IsaacLab/docker/Dockerfile
+services:
+  isaac-lab:
+    extends:
+      file: base.yaml
+      service: isaac-lab
+    build:
+      args:
+      # Set the version of the ROS2 apt package to install (ros-base, desktop, desktop-full)
+      - ROS2_APT_PACKAGE=ros-base
+
+include:
+- ./isaaclab_volumes.yaml

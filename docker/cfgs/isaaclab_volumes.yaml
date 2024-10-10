@@ -1,0 +1,16 @@
+# IsaacLab volumes
+# Should be included in any service which extends base.yaml
+# so that all expected volumes are available
+volumes:
+  isaac-lab-docs:
+  isaac-lab-logs:
+  isaac-lab-data:
+  isaac-cache-kit:
+  isaac-cache-ov:
+  isaac-cache-pip:
+  isaac-cache-gl:
+  isaac-cache-compute:
+  isaac-logs:
+  isaac-carb-logs:
+  isaac-data:
+  isaac-docs:

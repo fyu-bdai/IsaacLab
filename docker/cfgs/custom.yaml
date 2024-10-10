@@ -1,0 +1,14 @@
+# Extension of ros2.yaml to support the 'custom' stage of the IsaacLab/docker/Dockerfile
+services:
+  isaac-lab:
+    extends:
+      file: ros2.yaml
+      service: isaac-lab
+    build:
+      args:
+        # Arg to demonstrate how users can provide
+        # custom Dockerfile stages with custom ARGs
+        - CUSTOM_MESSAGE="Hello world!"
+
+include:
+- ./isaaclab_volumes.yaml
