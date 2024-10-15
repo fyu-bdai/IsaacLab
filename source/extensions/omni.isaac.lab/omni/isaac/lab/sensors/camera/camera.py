@@ -350,10 +350,10 @@ class Camera(SensorBase):
     """
 
     def reset(self, env_ids: Sequence[int] | None = None):
-        # if not self._is_initialized:
-        #     raise RuntimeError(
-        #         "Camera could not be initialized. Please ensure --enable_cameras is used to enable rendering."
-            # )
+        if not self._is_initialized:
+            raise RuntimeError(
+                "Camera could not be initialized. Please ensure --enable_cameras is used to enable rendering."
+            )
         # reset the timestamps
         super().reset(env_ids)
         # resolve None
@@ -380,12 +380,12 @@ class Camera(SensorBase):
             RuntimeError: If the number of camera prims in the view does not match the number of environments.
             RuntimeError: If replicator was not found.
         """
-        # carb_settings_iface = carb.settings.get_settings()
-        # if not carb_settings_iface.get("/isaaclab/cameras_enabled"):
-        #     raise RuntimeError(
-        #         "A camera was spawned without the --enable_cameras flag. Please use --enable_cameras to enable"
-        #         " rendering."
-        #     )
+        carb_settings_iface = carb.settings.get_settings()
+        if not carb_settings_iface.get("/isaaclab/cameras_enabled"):
+            raise RuntimeError(
+                "A camera was spawned without the --enable_cameras flag. Please use --enable_cameras to enable"
+                " rendering."
+            )
 
         import omni.replicator.core as rep
         from omni.syntheticdata.scripts.SyntheticData import SyntheticData
