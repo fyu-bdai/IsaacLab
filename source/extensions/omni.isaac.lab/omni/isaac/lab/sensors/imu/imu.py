@@ -127,29 +127,32 @@ class Imu(SensorBase):
 
     def _update_buffers_impl(self, env_ids: Sequence[int]):
         """Fills the buffers of the sensor data."""
+        # default to all sensors
+        if len(env_ids) == self._num_envs:
+            env_ids = slice(None)
         # obtain the poses of the sensors
         pos_w, quat_w = self._view.get_transforms()[env_ids].split([3, 4], dim=-1)
         quat_w = math_utils.convert_quat(quat_w, to="wxyz")
 
         # store the poses
-        self._data.pos_w[env_ids] = pos_w + math_utils.quat_rotate(quat_w, self._offset_pos_b)
-        self._data.quat_w[env_ids] = math_utils.quat_mul(quat_w, self._offset_quat_b)
+        self._data.pos_w[env_ids] = pos_w + math_utils.quat_rotate(quat_w, self._offset_pos_b[env_ids])
+        self._data.quat_w[env_ids] = math_utils.quat_mul(quat_w, self._offset_quat_b[env_ids])
 
         # obtain the velocities of the link COM
         lin_vel_w, ang_vel_w = self._view.get_velocities()[env_ids].split([3, 3], dim=-1)
         # if an offset is present or the COM does not agree with the link origin, the linear velocity has to be
         # transformed taking the angular velocity into account
         lin_vel_w += torch.linalg.cross(
-            ang_vel_w, math_utils.quat_rotate(quat_w, self._offset_pos_b - self._com_pos_b[env_ids]), dim=-1
+            ang_vel_w, math_utils.quat_rotate(quat_w, self._offset_pos_b[env_ids] - self._com_pos_b[env_ids]), dim=-1
         )
 
         # numerical derivative
         if not hasattr(self, "_dt"):
-            lin_acc_w = torch.zeros_like(lin_vel_w) + self._gravity_bias_w
+            lin_acc_w = torch.zeros_like(lin_vel_w) + self._gravity_bias_w[env_ids]
             ang_acc_w = torch.zeros_like(ang_vel_w)
         else:
-            lin_acc_w = (lin_vel_w - self._prev_lin_vel_w) / self._dt
-            ang_acc_w = (ang_vel_w - self._prev_ang_vel_w) / self._dt
+            lin_acc_w = (lin_vel_w - self._prev_lin_vel_w[env_ids]) / self._dt + self._gravity_bias_w[env_ids]
+            ang_acc_w = (ang_vel_w - self._prev_ang_vel_w[env_ids]) / self._dt
 
         # store the velocities
         self._data.lin_vel_b[env_ids] = math_utils.quat_rotate_inverse(self._data.quat_w[env_ids], lin_vel_w)
@@ -158,8 +161,8 @@ class Imu(SensorBase):
         self._data.lin_acc_b[env_ids] = math_utils.quat_rotate_inverse(self._data.quat_w[env_ids], lin_acc_w)
         self._data.ang_acc_b[env_ids] = math_utils.quat_rotate_inverse(self._data.quat_w[env_ids], ang_acc_w)
 
-        self._prev_lin_vel_w[:] = lin_vel_w
-        self._prev_ang_vel_w[:] = ang_vel_w
+        self._prev_lin_vel_w[env_ids] = lin_vel_w
+        self._prev_ang_vel_w[env_ids] = ang_vel_w
 
     def _initialize_buffers_impl(self):
         """Create buffers for storing data."""

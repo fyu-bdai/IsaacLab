@@ -43,22 +43,6 @@ PEND_POS_OFFSET = (0.4, 0.0, 0.1)
 PEND_ROT_OFFSET = (0.5, 0.5, 0.5, 0.5)
 
 
-def vector_error(v1: torch.Tensor, v2: torch.Tensor):
-    """Returns the magnitude and direction error between two vectors"""
-    v1_mag = torch.linalg.vector_norm(v1, dim=-1)
-    v2_mag = torch.linalg.vector_norm(v2, dim=-1)
-
-    v1_dir = torch.nn.functional.normalize(v1, dim=-1)
-    v2_dir = torch.nn.functional.normalize(v2, dim=-1)
-
-    mag_abs_err = torch.abs(v1_mag - v2_mag)
-    mag_rel_err = mag_abs_err / v2_mag
-
-    dir_err = torch.acos(torch.sum(v1_dir * v2_dir, dim=-1))
-
-    return mag_abs_err, mag_rel_err, dir_err
-
-
 @configclass
 class MySceneCfg(InteractiveSceneCfg):
     """Example scene configuration."""
@@ -124,7 +108,6 @@ class MySceneCfg(InteractiveSceneCfg):
     )
     imu_robot_imu_link: ImuCfg = ImuCfg(
         prim_path="{ENV_REGEX_NS}/robot/imu_link",
-        gravity_bias=(0.0, 0.0, 0.0),
     )
     imu_robot_base: ImuCfg = ImuCfg(
         prim_path="{ENV_REGEX_NS}/robot/base",
@@ -132,13 +115,11 @@ class MySceneCfg(InteractiveSceneCfg):
             pos=POS_OFFSET,
             rot=ROT_OFFSET,
         ),
-        gravity_bias=(0.0, 0.0, 0.0),
     )
 
     imu_pendulum_imu_link: ImuCfg = ImuCfg(
         prim_path="{ENV_REGEX_NS}/pendulum/imu_link",
         debug_vis=not app_launcher._headless,
-        gravity_bias=(0.0, 0.0, 0.0),
     )
     imu_pendulum_base: ImuCfg = ImuCfg(
         prim_path="{ENV_REGEX_NS}/pendulum/link_1",
@@ -147,7 +128,6 @@ class MySceneCfg(InteractiveSceneCfg):
             rot=PEND_ROT_OFFSET,
         ),
         debug_vis=False,  # not app_launcher._headless,
-        gravity_bias=(0.0, 0.0, 0.0),
     )
 
     def __post_init__(self):
@@ -360,9 +340,11 @@ class TestImu(unittest.TestCase):
                 0
             ] * torch.cos(joint_pos)
             ay = torch.zeros(2, 1, device=self.scene.device)
-            az = -joint_acc_imu * PEND_POS_OFFSET[0] * torch.cos(joint_pos) + joint_vel**2 * PEND_POS_OFFSET[
-                0
-            ] * torch.sin(joint_pos)
+            az = (
+                -joint_acc_imu * PEND_POS_OFFSET[0] * torch.cos(joint_pos)
+                + joint_vel**2 * PEND_POS_OFFSET[0] * torch.sin(joint_pos)
+                + 9.81
+            )
             gt_linear_acc_w = torch.cat([ax, ay, az], dim=-1)
 
             # skip first step where initial velocity is zero
@@ -508,6 +490,34 @@ class TestImu(unittest.TestCase):
                 rtol=1e-4,
                 atol=1e-4,
             )
+
+    def test_env_ids_propagation(self):
+        """Test that env_ids argument propagates through update and reset methods"""
+        self.scene.reset()
+
+        for idx in range(10):
+            # set acceleration
+            self.scene.articulations["robot"].write_root_velocity_to_sim(
+                torch.tensor([[0.5, 0.0, 0.0, 0.0, 0.0, 0.0]], dtype=torch.float32, device=self.scene.device).repeat(
+                    self.scene.num_envs, 1
+                )
+                * (idx + 1)
+            )
+            # write data to sim
+            self.scene.write_data_to_sim()
+            # perform step
+            self.sim.step()
+            # read data from sim
+            self.scene.update(self.sim.get_physics_dt())
+
+        # reset scene for env 1
+        self.scene.reset(env_ids=[1])
+        # read data from sim
+        self.scene.update(self.sim.get_physics_dt())
+        # perform step
+        self.sim.step()
+        # read data from sim
+        self.scene.update(self.sim.get_physics_dt())
 
 
 if __name__ == "__main__":
