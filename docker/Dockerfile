@@ -50,7 +50,8 @@ RUN --mount=type=cache,target=/var/cache/apt \
     cmake \
     git \
     libglib2.0-0 \
-    ncurses-term && \
+    ncurses-term \
+    tmux && \
     apt -y autoremove && apt clean autoclean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -135,12 +136,16 @@ RUN --mount=type=cache,target=/var/cache/apt \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo jammy) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null && \
     apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-${ROS2_APT_PACKAGE} \
+    # Required by IsaacSim to use Detection2DArray and
+    # Detection3DArray, used for publishing bounding boxes
     ros-humble-vision-msgs \
     # Install both FastRTPS and CycloneDDS
     ros-humble-rmw-cyclonedds-cpp \
     ros-humble-rmw-fastrtps-cpp \
     # This includes various dev tools including colcon
-    ros-dev-tools && \
+    ros-dev-tools \
+    # Robot visualization tool
+    ros-humble-rviz2 && \
     # Install rosdeps for extensions that declare a ros_ws in
     # their extension.toml
     ${ISAACLAB_PATH}/isaaclab.sh -p ${ISAACLAB_PATH}/tools/install_deps.py rosdep ${ISAACLAB_PATH}/source/extensions && \
