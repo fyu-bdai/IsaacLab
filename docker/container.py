@@ -53,10 +53,15 @@ def main():
     )
 
     # Actual command definition begins here
-    subparsers.add_parser(
+    start = subparsers.add_parser(
         "start",
         help="Build the docker image and bring up the compose network in detached mode.",
         parents=[parent_parser, build_opts_parser, up_opts_parser],
+    )
+    start.add_argument(
+        "--cpu-only",
+        action="store_true",
+        help="Start the IsaacLab container without a GPU",
     )
     subparsers.add_parser(
         "build",
@@ -103,6 +108,8 @@ def main():
             (x11_yaml, x11_envar) = x11_outputs
             ci.yamls += x11_yaml
             ci.environ.update(x11_envar)
+        if not args.cpu_only:
+            ci.yamls += ["gpu_deploy.yaml"]
         ci.build(args.build_args)
         ci.up(args.up_args)
     elif args.command == "build":

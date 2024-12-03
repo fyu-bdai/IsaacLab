@@ -72,13 +72,6 @@ services:
       - type: volume
         source: isaac-docs
         target: ${DOCKER_USER_HOME}/Documents
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
     # This is the entrypoint for the container
     entrypoint: bash
     stdin_open: true
