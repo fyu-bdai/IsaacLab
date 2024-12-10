@@ -1,8 +1,16 @@
 Changelog
 ---------
 
-0.25.2 (2024-10-22)
-~~~~~~~~~~~~~~~~~~~
+
+0.27.23 (2024-12-06)
+~~~~~~~~~~~~~~~~~~~~
+
+Fixed
+^^^^^
+
+* Fixed the enforcement of :attr:`~omni.isaac.lab.actuators.ActuatorBaseCfg.velocity_limits` at the
+  :attr:`~omni.isaac.lab.assets.Articulation.root_physx_view` level.
+
 
 Fixed
 ^^^^^
