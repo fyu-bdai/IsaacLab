@@ -93,6 +93,32 @@ def root_ang_vel_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntity
     return asset.data.root_ang_vel_w
 
 
+def link_pose(
+    env: ManagerBasedEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    link_name: str | None = None,
+) -> torch.Tensor:
+    """The link pose of the asset w.r.t the env.scene.origin.
+
+    Args:
+        env: The environment.
+        asset_cfg: The SceneEntity associated with this observation.
+        link_name: The specific name of the link in the asset to extract, defaults to base link of Articulation.
+
+    Returns:
+        The pose of link_name with shape [num_env, 7]. Output order is [x,y,z,qw,qx,qy,qz].
+    """
+    # extract the used quantities (to enable type-hinting)
+    asset: Articulation = env.scene[asset_cfg.name]
+
+    if link_name is None:
+        link_name = asset.body_names[0]  # set body name as the base link
+    link_id = asset.body_names.index(link_name)
+    pose = asset.data.body_state_w[:, link_id, :7]
+    pose[:, :3] = pose[:, :3] - env.scene.env_origins
+    return pose
+
+
 """
 Joint state.
 """
@@ -152,6 +178,22 @@ def joint_vel_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityC
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
     return asset.data.joint_vel[:, asset_cfg.joint_ids] - asset.data.default_joint_vel[:, asset_cfg.joint_ids]
+
+
+def joint_effort(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """The joint applied effort of the robot.
+    NOTE: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their effort returned.
+
+    Args:
+        env: The environment.
+        asset_cfg: The SceneEntity associated with this observation.
+
+    Returns:
+        The joint effort (N or N-m) for joint_names in asset_cfg, shape is [num_env,num_joints].
+    """
+    # extract the used quantities (to enable type-hinting)
+    asset: Articulation = env.scene[asset_cfg.name]
+    return asset.data.applied_torque[:, asset_cfg.joint_ids]
 
 
 """
