@@ -82,10 +82,11 @@ def install_apt_packages(paths: list[str]):
         if shutil.which("apt"):
             # Check if the extension.toml file exists
             if not os.path.exists(f"{path}/config/extension.toml"):
-                raise FileNotFoundError(
-                    "During the installation of 'apt' dependencies, unable to find a"
-                    f" valid file at: {path}/config/extension.toml."
+                print(
+                    f"[WARN] Unable to find a valid file at: {path}/config/extension.toml."
+                    "Skipping the installation of apt packages for this extension."
                 )
+                continue
             # Load the extension.toml file and check for apt_deps
             with open(f"{path}/config/extension.toml") as fd:
                 ext_toml = toml.load(fd)
@@ -119,10 +120,11 @@ def install_rosdep_packages(paths: list[str], ros_distro: str = "humble"):
         if shutil.which("rosdep"):
             # Check if the extension.toml file exists
             if not os.path.exists(f"{path}/config/extension.toml"):
-                raise FileNotFoundError(
-                    "During the installation of 'rosdep' dependencies, unable to find a"
-                    f" valid file at: {path}/config/extension.toml."
+                print(
+                    f"[WARN] Unable to find a valid file at: {path}/config/extension.toml."
+                    "Skipping the installation of rosdep packages for this extension."
                 )
+                continue
             # Load the extension.toml file and check for ros_ws
             with open(f"{path}/config/extension.toml") as fd:
                 ext_toml = toml.load(fd)
