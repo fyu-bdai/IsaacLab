@@ -119,6 +119,33 @@ def link_pose(
     return pose
 
 
+def link_projected_gravity(
+    env: ManagerBasedEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    link_name: str | None = None,
+) -> torch.Tensor:
+    """The direction of gravity projected on to link_name of an Articulation defined in asset_cfg.
+
+    Args:
+        env: The environment.
+        asset_cfg: The Articulation associated with this observation.
+        link_name: The specific name of the link in the asset to extract, defaults to base link of Articulation.
+
+    Returns:
+        The unit vector direction of gravity projected onto link_name's frame.
+    """
+    # extract the used quantities (to enable type-hinting)
+    asset: Articulation = env.scene[asset_cfg.name]
+    if link_name is not None:
+        body_id = asset.body_names.index(link_name)
+    else:
+        # default to 0th link, which is the base link
+        body_id = 0
+    body_quat = asset.data.body_quat_w[:, body_id]
+    gravity_dir = asset.data.GRAVITY_VEC_W
+    return math_utils.quat_rotate_inverse(body_quat, gravity_dir).view(-1)
+
+
 """
 Joint state.
 """
