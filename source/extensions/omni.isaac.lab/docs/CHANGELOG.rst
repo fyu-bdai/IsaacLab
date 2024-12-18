@@ -2,6 +2,31 @@ Changelog
 ---------
 
 
+0.27.24 (2024-12-09)
+~~~~~~~~~~~~~~~~~~~~
+
+Fixed
+^^^^^
+
+* Fixed the initial state recorder term in :class:`omni.isaac.lab.envs.mdp.recorders.InitialStateRecorder` to
+  return only the states of the specified environment IDs.
+
+
+0.27.17 (2024-12-02)
+~~~~~~~~~~~~~~~~~~~~
+
+Added
+^^^^^
+
+* Added :class:`~omni.isaac.lab.managers.RecorderManager` and its utility classes to record data from the simulation.
+* Added :class:`~omni.isaac.lab.utils.datasets.EpisodeData` to store data for an episode.
+* Added :class:`~omni.isaac.lab.utils.datasets.DatasetFileHandlerBase` as a base class for handling dataset files.
+* Added :class:`~omni.isaac.lab.utils.datasets.HDF5DatasetFileHandler` as a dataset file handler implementation to
+  export and load episodes from HDF5 files.
+* Added ``record_demos.py`` script to record human-teleoperated demos for a specified task and export to an HDF5 file.
+* Added ``replay_demos.py`` script to replay demos loaded from an HDF5 file.
+
+
 0.27.23 (2024-12-06)
 ~~~~~~~~~~~~~~~~~~~~
 

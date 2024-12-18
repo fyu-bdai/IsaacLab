@@ -40,6 +40,7 @@ Guidelines for modifications:
 * Brayden Zhang
 * Calvin Yu
 * Chenyu Yang
+* CY (Chien-Ying) Chen
 * David Yang
 * Gary Lvov
 * Giulio Romualdi
