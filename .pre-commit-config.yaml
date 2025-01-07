@@ -51,15 +51,16 @@ repos:
   #   hooks:
   #   - id: pyright
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.5.1
+    rev: v1.5.5
     hooks:
       - id: insert-license
-        files: \.py$
+        files: (\.sh|\.bash|\.py)$
         args:
           # - --remove-header    # Remove existing license headers. Useful when updating license.
           - --license-filepath
           - .github/LICENSE_HEADER.txt
           - --use-current-year
+          - --allow-past-years
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
     hooks:

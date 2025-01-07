@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -335,7 +335,7 @@ while [[ $# -gt 0 ]]; do
             # always execute inside the Isaac Lab directory
             echo "[INFO] Formatting the repository..."
             cd ${ISAACLAB_PATH}
-            pre-commit run --all-files
+            pre-commit run
             cd - > /dev/null
             # set the python path back to the original value
             if [ -n "${CONDA_DEFAULT_ENV}" ]; then
