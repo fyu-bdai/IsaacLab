@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -18,9 +18,19 @@ simulation_app = AppLauncher(headless=True).app
 import torch
 import unittest
 from collections import namedtuple
+from typing import TYPE_CHECKING
 
-from omni.isaac.lab.managers import ManagerTermBase, ObservationGroupCfg, ObservationManager, ObservationTermCfg
+from omni.isaac.lab.managers import (
+    ManagerTermBase,
+    ObservationGroupCfg,
+    ObservationManager,
+    ObservationTermCfg,
+    RewardTermCfg,
+)
 from omni.isaac.lab.utils import configclass, modifiers
+
+if TYPE_CHECKING:
+    from omni.isaac.lab.envs import ManagerBasedEnv
 
 
 def grilled_chicken(env):
@@ -547,6 +557,42 @@ class TestObservationManager(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.obs_man = ObservationManager(cfg, self.env)
+
+    def test_serialize(self):
+        """Test serialize call for ManagerTermBase terms."""
+
+        serialize_data = {"test": 0}
+
+        class test_serialize_term(ManagerTermBase):
+
+            def __init__(self, cfg: RewardTermCfg, env: ManagerBasedEnv):
+                super().__init__(cfg, env)
+
+            def __call__(self, env: ManagerBasedEnv) -> torch.Tensor:
+                return grilled_chicken(env)
+
+            def serialize(self) -> dict:
+                return serialize_data
+
+        @configclass
+        class MyObservationManagerCfg:
+            """Test config class for observation manager."""
+
+            @configclass
+            class PolicyCfg(ObservationGroupCfg):
+                """Test config class for policy observation group."""
+
+                concatenate_terms = False
+                term_1 = ObservationTermCfg(func=test_serialize_term)
+
+            policy: ObservationGroupCfg = PolicyCfg()
+
+        # create observation manager
+        cfg = MyObservationManagerCfg()
+        self.obs_man = ObservationManager(cfg, self.env)
+
+        # check expected output
+        self.assertEqual(self.obs_man.serialize(), {"policy": {"term_1": serialize_data}})
 
 
 if __name__ == "__main__":

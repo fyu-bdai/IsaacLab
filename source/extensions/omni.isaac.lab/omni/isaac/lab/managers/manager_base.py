@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 import carb
 
 import omni.isaac.lab.utils.string as string_utils
-from omni.isaac.lab.utils import string_to_callable
+from omni.isaac.lab.utils import class_to_dict, string_to_callable
 
 from .manager_term_cfg import ManagerTermBaseCfg
 from .scene_entity_cfg import SceneEntityCfg
@@ -111,6 +111,15 @@ class ManagerTermBase(ABC):
             The value of the term.
         """
         raise NotImplementedError
+
+    @property
+    def __name__(self) -> str:
+        """Return the name of the class or subclass."""
+        return self.__class__.__name__
+
+    def serialize(self) -> dict:
+        """General serialization call. Includes the configuration dict."""
+        return {"cfg": class_to_dict(self.cfg)}
 
 
 class ManagerBase(ABC):

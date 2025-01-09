@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -362,3 +362,12 @@ class ActionManager(ManagerBase):
             # add term name and parameters
             self._term_names.append(term_name)
             self._terms[term_name] = term
+
+    def serialize(self) -> dict:
+        """
+        Serialize the action manager configuration.
+
+        Returns:
+            dict: A dictionary of serialized action term configurations.
+        """
+        return {term_name: term.serialize() for term_name, term in self._terms.items()}
