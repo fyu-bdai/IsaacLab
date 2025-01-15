@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -135,11 +135,11 @@ def joint_effort_out_of_limit(
     """
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
-    # check if any joint effort is out of limit
-    out_of_limits = torch.isclose(
+    # check if any joint effort is in the limit
+    computed_applied_are_close = torch.isclose(
         asset.data.computed_torque[:, asset_cfg.joint_ids], asset.data.applied_torque[:, asset_cfg.joint_ids]
     )
-    return torch.any(out_of_limits, dim=1)
+    return torch.any(~computed_applied_are_close, dim=-1)
 
 
 """
