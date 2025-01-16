@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -7,6 +7,7 @@
 
 
 from dataclasses import MISSING
+from typing import Literal
 
 from omni.isaac.lab.markers import VisualizationMarkersCfg
 from omni.isaac.lab.markers.config import RAY_CASTER_MARKER_CFG
@@ -43,10 +44,11 @@ class RayCasterCfg(SensorBaseCfg):
     offset: OffsetCfg = OffsetCfg()
     """The offset pose of the sensor's frame from the sensor's parent frame. Defaults to identity."""
 
-    attach_yaw_only: bool = MISSING
-    """Whether the rays' starting positions and directions only track the yaw orientation.
-
-    This is useful for ray-casting height maps, where only yaw rotation is needed.
+    ray_alignment: Literal["base", "yaw", "world"] = "yaw"
+    """Specify in what frame the rays are projected onto the ground. Default is `world`.
+        * `base` if the rays' starting positions and directions track the full root orientation.
+        * `yaw` if the rays' starting positions and directions only track yaw orientation. This is useful for ray-casting height maps, where only yaw rotation is needed.
+        * `world` if rays' starting positions and directions are not rotated. This is useful in combination with the grid map package.
     """
 
     pattern_cfg: PatternBaseCfg = MISSING
