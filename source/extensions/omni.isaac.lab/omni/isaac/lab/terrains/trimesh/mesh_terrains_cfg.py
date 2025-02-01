@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -195,9 +195,11 @@ class MeshRepeatedObjectsTerrainCfg(SubTerrainBaseCfg):
     """The object curriculum parameters at the end of the curriculum."""
 
     max_height_noise: float = 0.0
-    """The maximum amount of noise to add to the height of the objects (in m). Defaults to 0.0."""
+    """The maximum amount of noise to add to the height of the objects (in m). Default is set to 0.0."""
     platform_width: float = 1.0
-    """The width of the cylindrical platform at the center of the terrain. Defaults to 1.0."""
+    """The width of the cylindrical platform at the center of the terrain. Default is set to 1.0."""
+    platform_height: float = -1.0
+    """The height of the platform. If the value is negative, the height is the same as the object height. Default is set to -1.0. """
 
 
 @configclass
