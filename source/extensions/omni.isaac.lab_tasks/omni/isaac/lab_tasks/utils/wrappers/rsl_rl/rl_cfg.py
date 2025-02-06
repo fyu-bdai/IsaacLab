@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -27,6 +27,23 @@ class RslRlPpoActorCriticCfg:
 
     activation: str = MISSING
     """The activation function for the actor and critic networks."""
+
+
+@configclass
+class RslRlPpoActorCriticRecurrentCfg(RslRlPpoActorCriticCfg):
+    """Configuration for the PPO actor-critic recurrent networks."""
+
+    class_name: str = "ActorCriticRecurrent"
+    """The policy class name. Default is ActorCriticRecurrent."""
+
+    rnn_type: str = "lstm"
+    """Type of cell in recurrent neural network. Options include 'lstm' and 'gru'."""
+
+    rnn_hidden_size: int = 256
+    """Dimension size of each cell in recurrent neural network."""
+
+    rnn_num_layers: int = 1
+    """Number of hidden layers in recurrent neural network."""
 
 
 @configclass
