@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -11,7 +11,6 @@
 from omni.isaac.lab.app import AppLauncher, run_tests
 
 HEADLESS = True
-
 # launch omniverse app
 app_launcher = AppLauncher(headless=HEADLESS)
 simulation_app = app_launcher.app
@@ -26,6 +25,7 @@ from typing import Literal
 import omni.isaac.core.utils.prims as prim_utils
 
 import omni.isaac.lab.sim as sim_utils
+import omni.isaac.lab.utils.math as math_utils
 import omni.isaac.lab.utils.string as string_utils
 from omni.isaac.lab.actuators import ImplicitActuatorCfg
 from omni.isaac.lab.assets import Articulation, ArticulationCfg
@@ -76,10 +76,15 @@ def generate_articulation_cfg(
                     joint_names_expr=[".*"],
                     effort_limit=effort_limit,
                     velocity_limit=vel_limit,
-                    stiffness=0.0,
-                    damping=10.0,
+                    stiffness=2000.0,
+                    damping=100.0,
                 ),
             },
+            init_state=ArticulationCfg.InitialStateCfg(
+                pos=(0.0, 0.0, 0.5),
+                joint_pos=({"RevoluteJoint": 1.5708}),
+                rot=(0.7071055, 0.7071081, 0, 0),
+            ),
         )
     else:
         raise ValueError(
@@ -897,6 +902,97 @@ class TestArticulation(unittest.TestCase):
                         # the articulation moved. We can't check that it reached it's desired joint position as the gains
                         # are not properly tuned
                         assert not torch.allclose(articulation.data.joint_pos, joint_pos)
+
+    def test_body_joint_reaction_wrench(self):
+        """Test the data.body_joint_reaction_wrench buffer is populated correctly and statically correct for single joint."""
+        for num_articulations in (1, 2):
+            for device in ("cuda:0", "cpu"):
+                with self.subTest(num_articulations=num_articulations, device=device):
+                    with build_simulation_context(
+                        gravity_enabled=True, device=device, add_ground_plane=True, auto_add_lighting=True
+                    ) as sim:
+                        articulation_cfg = generate_articulation_cfg(articulation_type="single_joint")
+                        articulation, _ = generate_articulation(
+                            articulation_cfg=articulation_cfg, num_articulations=num_articulations, device=device
+                        )
+
+                        # Play the simulator
+                        sim.reset()
+                        # apply external force
+                        external_force_vector_b = torch.zeros(
+                            (num_articulations, articulation.num_bodies, 3), device=device
+                        )
+                        external_force_vector_b[:, 1, 1] = 10.0  # 10 N in Y direction
+                        external_torque_vector_b = torch.zeros(
+                            (num_articulations, articulation.num_bodies, 3), device=device
+                        )
+                        external_torque_vector_b[:, 1, 2] = 10.0  # 10 Nm in z direction
+
+                        # apply action to the articulation
+                        joint_pos = torch.ones_like(articulation.data.joint_pos) * 1.5708 / 2.0
+                        articulation.write_joint_state_to_sim(
+                            torch.ones_like(articulation.data.joint_pos), torch.zeros_like(articulation.data.joint_vel)
+                        )
+                        articulation.set_joint_position_target(joint_pos)
+                        articulation.write_data_to_sim()
+                        for _ in range(100):
+                            articulation.set_external_force_and_torque(
+                                forces=external_force_vector_b, torques=external_torque_vector_b
+                            )
+                            articulation.write_data_to_sim()
+                            # perform step
+                            sim.step()
+                            # update buffers
+                            articulation.update(sim.cfg.dt)
+
+                            # check shape
+                            self.assertEqual(
+                                articulation.data.body_joint_reaction_wrench_b.shape,
+                                (num_articulations, len(articulation.data.body_names), 6),
+                            )
+
+                        # calculate expected static
+                        mass = articulation.root_physx_view.get_masses()  # [num_env, num_bodies]
+                        pos_w, quat_w = articulation.root_physx_view.get_link_transforms().split([3, 4], dim=-1)
+                        quat_w = math_utils.convert_quat(quat_w, to="wxyz")
+
+                        mass_link2 = mass[:, 1].view(num_articulations, -1)
+                        gravity = (
+                            torch.tensor(sim.cfg.gravity, device="cpu")
+                            .repeat(num_articulations, 1)
+                            .view((num_articulations, 3))
+                        )
+                        # NOTE: the com and link pose for single joint are colocated
+                        weight_vector_w = mass_link2 * gravity
+                        # expected wrench from link mass and external wrench
+                        expected_wrench = torch.zeros((num_articulations, 6), device=device)
+                        expected_wrench[:, :3] = math_utils.quat_apply(
+                            math_utils.quat_conjugate(quat_w[:, 0, :]),
+                            weight_vector_w.to(device)
+                            + math_utils.quat_apply(quat_w[:, 1, :], external_force_vector_b[:, 1, :]),
+                        )
+                        expected_wrench[:, 3:] = math_utils.quat_apply(
+                            math_utils.quat_conjugate(quat_w[:, 0, :]),
+                            torch.cross(
+                                pos_w[:, 1, :].to(device) - pos_w[:, 0, :].to(device),
+                                weight_vector_w.to(device)
+                                + math_utils.quat_apply(quat_w[:, 1, :], external_force_vector_b[:, 1, :]),
+                            )
+                            + math_utils.quat_apply(quat_w[:, 1, :], external_torque_vector_b[:, 1, :]),
+                        )
+
+                        print("expected")
+                        print(expected_wrench.split([3, 3], dim=-1))
+                        print("measured")
+                        print(articulation.data.body_joint_reaction_wrench_b[:, 1, :].squeeze(1).split([3, 3], dim=-1))
+
+                        # check value of last joint wrench
+                        torch.testing.assert_close(
+                            expected_wrench,
+                            articulation.data.body_joint_reaction_wrench_b[:, 1, :].squeeze(1),
+                            atol=5e-3,
+                            rtol=1e-3,
+                        )
 
 
 if __name__ == "__main__":
