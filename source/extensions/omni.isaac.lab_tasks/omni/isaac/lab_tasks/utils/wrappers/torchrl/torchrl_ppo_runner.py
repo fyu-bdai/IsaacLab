@@ -25,7 +25,7 @@ from torchrl.data.tensor_specs import CompositeSpec, UnboundedContinuousTensorSp
 from torchrl.envs.libs.gym import GymEnv
 from torchrl.envs.utils import ExplorationType
 from torchrl.modules import NormalParamExtractor, ProbabilisticActor, ValueOperator
-from torchrl.objectives.value import GAE
+# from torchrl.objectives.value import GAE
 from torchrl.record.loggers import TensorboardLogger
 
 from .torchrl_env_wrapper import (
@@ -35,6 +35,8 @@ from .torchrl_env_wrapper import (
     TrainerWrapper,
     WandbLoggerWrapper,
 )
+
+from .advantages import GAE
 
 if TYPE_CHECKING:
     from torchrl.trainers import Trainer
@@ -48,7 +50,7 @@ class NormalWrapper(Normal):
             scale = torch.clip(scale, min=0, max=max_scale)
         elif max_scale is not None:
             raise ValueError("Maximum scale must be greater than 0")
-        super().__init__(loc, scale, validate_args=validate_args)
+        return super().__init__(loc, scale, validate_args=validate_args)
 
     def log_prob(self, value):
         if self._validate_args:
@@ -85,7 +87,7 @@ class OnPolicyPPORunner:
         actor_td = TensorDictModule(
             nn.Sequential(
                 actor_network,
-                NormalParamExtractor(scale_mapping=f"biased_softplus_{self.actor_network_cfg.init_noise_std}"),
+                NormalParamExtractor(scale_mapping="relu"), 
             ),
             in_keys=self.actor_network_cfg.in_keys,
             out_keys=["loc", "scale"],
@@ -139,7 +141,6 @@ class OnPolicyPPORunner:
 
         total_frames = self.cfg.num_steps_per_env * self.num_envs * self.cfg.max_iterations
         frames_per_batch = self.cfg.num_steps_per_env * self.num_envs
-
         self.collector = SyncDataCollectorWrapper(
             create_env_fn=self.env,
             policy=self.actor_module,
@@ -182,9 +183,8 @@ class OnPolicyPPORunner:
             lr_schedule=self.cfg.lr_schedule,
             save_trainer_file=f"{self.log_dir}/model.pt",
         )
-        self.trainer_module.register_module(module_name="advantage_module", module=self.advantage_module)
-        self.trainer_module.register_op("batch_process", self.compute_advantages)
-        self.trainer_module.register_op("batch_process", self.bootstrap_reward)
+        self.trainer_module.register_module(module_name="advantage_module", module=self.advantage_module)        
+        self.trainer_module.register_op("batch_process", self.compute_advantages)    
 
         # register hooks for logging
         self.trainer_module.register_op("pre_steps_log", self.log_info_dict)
@@ -192,6 +192,7 @@ class OnPolicyPPORunner:
         self.trainer_module.register_op("pre_optim_steps", self.log_pre_optim_time)
         self.trainer_module.register_op("post_optim_log", self.log_optim_time)
         self.trainer_module.register_op("pre_steps_log", self.log_episode_stats)
+        self.trainer_module.register_op("pre_steps_log", self.log_advantages)
 
         # upload video to wandb
         if hasattr(self.env, "video_recorder") and self.cfg.logger == "wandb":
@@ -230,13 +231,15 @@ class OnPolicyPPORunner:
 
         wandb.save(cfg_file_path, base_path=os.path.dirname(cfg_file_path))
 
-    def bootstrap_reward(self, batch):
-        gamma = self.advantage_module.gamma
-        if batch["next"]["truncated"].any():
-            batch["next"]["reward"] += gamma * batch["next"]["state_value"] * batch["next"]["truncated"]
-
     def compute_advantages(self, batch):
-        self.advantage_module(batch)
+        assert ((batch["done"] == batch["terminated"] | batch["truncated"]).all())
+        td = self.advantage_module(batch)
+        self.curr_advantage = torch.mean(td["advantage"])
+
+    def log_advantages(self, batch):
+        log_dict = {}
+        log_dict["advantage"] = self.curr_advantage.item()
+        return log_dict
 
     def log_pre_optim_time(
         self,

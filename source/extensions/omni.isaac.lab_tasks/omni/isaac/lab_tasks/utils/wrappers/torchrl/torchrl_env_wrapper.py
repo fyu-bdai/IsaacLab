@@ -15,7 +15,7 @@ from collections.abc import Iterator
 from dataclasses import asdict
 from tensordict import TensorDict, TensorDictBase, unravel_key
 from tensordict.nn import ProbabilisticTensorDictSequential, TensorDictModule, dispatch
-from typing import Any
+from typing import Any, Optional
 
 from torchrl.collectors import SyncDataCollector
 from torchrl.collectors.utils import split_trajectories
@@ -30,6 +30,17 @@ from torchrl.trainers import Trainer
 from torchrl.trainers.trainers import LOGGER_METHODS
 
 from omni.isaac.lab.envs import ManagerBasedRLEnv
+
+from torchrl.objectives.utils import distance_loss
+from torch import distributions as d
+
+from torchrl.envs.utils import (
+    set_exploration_type,
+)
+
+from torchrl._utils import (
+    _replace_last,
+)
 
 
 class TorchRLEnvWrapper(GymWrapper):
@@ -54,8 +65,11 @@ class TorchRLEnvWrapper(GymWrapper):
 
         """
         if self._simple_done:
-            done = tensordict._get_str("done", default=None)
-            any_done = done.any()
+            done = tensordict.get("done", default=None)
+            if done is not None:
+                any_done = done.any()
+            else:
+                any_done = False
             if any_done:
                 tensordict._set_str(
                     "_reset",
@@ -72,6 +86,59 @@ class TorchRLEnvWrapper(GymWrapper):
             )
 
         return tensordict
+
+    def step_and_maybe_reset(
+        self, tensordict: TensorDictBase
+    ) -> Tuple[TensorDictBase, TensorDictBase]:
+        """Runs a step in the environment and (partially) resets it if needed.
+
+        Args:
+            tensordict (TensorDictBase): an input data structure for the :meth:`~.step`
+                method.
+
+        This method allows to easily code non-stopping rollout functions.
+
+        Examples:
+            >>> from torchrl.envs import ParallelEnv, GymEnv
+            >>> def rollout(env, n):
+            ...     data_ = env.reset()
+            ...     result = []
+            ...     for i in range(n):
+            ...         data, data_ = env.step_and_maybe_reset(data_)
+            ...         result.append(data)
+            ...     return torch.stack(result)
+            >>> env = ParallelEnv(2, lambda: GymEnv("CartPole-v1"))
+            >>> print(rollout(env, 2))
+            TensorDict(
+                fields={
+                    done: Tensor(shape=torch.Size([2, 2, 1]), device=cpu, dtype=torch.bool, is_shared=False),
+                    next: TensorDict(
+                        fields={
+                            done: Tensor(shape=torch.Size([2, 2, 1]), device=cpu, dtype=torch.bool, is_shared=False),
+                            observation: Tensor(shape=torch.Size([2, 2, 4]), device=cpu, dtype=torch.float32, is_shared=False),
+                            reward: Tensor(shape=torch.Size([2, 2, 1]), device=cpu, dtype=torch.float32, is_shared=False),
+                            terminated: Tensor(shape=torch.Size([2, 2, 1]), device=cpu, dtype=torch.bool, is_shared=False),
+                            truncated: Tensor(shape=torch.Size([2, 2, 1]), device=cpu, dtype=torch.bool, is_shared=False)},
+                        batch_size=torch.Size([2, 2]),
+                        device=cpu,
+                        is_shared=False),
+                    observation: Tensor(shape=torch.Size([2, 2, 4]), device=cpu, dtype=torch.float32, is_shared=False),
+                    terminated: Tensor(shape=torch.Size([2, 2, 1]), device=cpu, dtype=torch.bool, is_shared=False),
+                    truncated: Tensor(shape=torch.Size([2, 2, 1]), device=cpu, dtype=torch.bool, is_shared=False)},
+                batch_size=torch.Size([2, 2]),
+                device=cpu,
+                is_shared=False)
+        """
+        if tensordict.device != self.device:
+            tensordict = tensordict.to(self.device)
+        tensordict = self.step(tensordict)
+
+        # done and truncated are in done_keys
+        # We read if any key is done.
+        tensordict_ = self._step_mdp(tensordict)
+        tensordict_ = self.maybe_reset(tensordict_)
+
+        return tensordict, tensordict_    
 
     def step(self, tensordict: TensorDictBase) -> TensorDictBase:
         """Makes a step in the environment.
@@ -94,8 +161,8 @@ class TorchRLEnvWrapper(GymWrapper):
         # sanity check
         self._assert_tensordict_shape(tensordict)
         next_preset = tensordict.get("next", None)  # noqa: SIM910
-
         next_tensordict = self._step(tensordict)
+        assert (tensordict["done"] == tensordict["terminated"] | tensordict["truncated"]).all()
         next_tensordict = self._step_proc_data(next_tensordict)
         if next_preset is not None:
             # tensordict could already have a "next" key
@@ -115,7 +182,7 @@ class TorchRLEnvWrapper(GymWrapper):
     def _step(self, tensordict: TensorDictBase) -> TensorDictBase:
         action = tensordict.get(self.action_key)
         reward = 0
-        for _ in range(self.wrapper_frame_skip):
+        for i in range(self.wrapper_frame_skip):           
             (
                 obs,
                 _reward,
@@ -124,13 +191,13 @@ class TorchRLEnvWrapper(GymWrapper):
                 done,
                 info_dict,
             ) = self._output_transform(self._env.step(action))
-
+            assert (done == terminated | truncated).all()
             if _reward is not None:
                 reward = reward + _reward
 
             terminated, truncated, done, do_break = self.read_done(
                 terminated=terminated, truncated=truncated, done=done
-            )
+            )      
             if do_break:
                 break
         reward = self.read_reward(reward)
@@ -140,12 +207,12 @@ class TorchRLEnvWrapper(GymWrapper):
         # if truncated/terminated is not in the keys, we just don't pass it even if it
         # is defined.
         if terminated is None:
-            terminated = done
+            terminated = done.clone()
         if truncated is not None:
-            obs_dict["truncated"] = truncated
+            obs_dict["truncated"] = truncated.clone()
 
-        obs_dict["done"] = done
-        obs_dict["terminated"] = terminated
+        obs_dict["done"] = done.clone()
+        obs_dict["terminated"] = terminated.clone()
         validated = self.validated
         if not validated:
             tensordict_out = TensorDict(obs_dict, batch_size=tensordict.batch_size)
@@ -159,7 +226,7 @@ class TorchRLEnvWrapper(GymWrapper):
             tensordict_out = TensorDict._new_unsafe(
                 obs_dict,
                 batch_size=tensordict.batch_size,
-            )
+            )       
         if self.device is not None:
             tensordict_out = tensordict_out.to(self.device)
 
@@ -178,7 +245,7 @@ class TorchRLEnvWrapper(GymWrapper):
         self._curr_ep_len[new_ids] = 0
         self._curr_reward_sum[new_ids] = 0
         tensordict.set("episode_length", self._ep_len_buf)
-        tensordict.set("episode_reward", self._ep_reward_buf)
+        tensordict.set("episode_reward", self._ep_reward_buf)     
         tensordict_out.set("episode_length", self._ep_len_buf)
         tensordict_out.set("episode_reward", self._ep_reward_buf)
         if self.info_dict_reader and (info_dict is not None):
@@ -190,8 +257,8 @@ class TorchRLEnvWrapper(GymWrapper):
                 for info_dict_reader in self.info_dict_reader:
                     out = info_dict_reader(info_dict, tensordict_out)
                     if out is not None:
-                        tensordict_out = out
-        return tensordict_out
+                        tensordict_out = out                            
+        return tensordict_out        
 
     def _step_proc_data(self, next_tensordict_out):
         batch_size = self.batch_size
@@ -312,16 +379,13 @@ class SyncDataCollectorWrapper(SyncDataCollector):
             rollout_time = end_time - start_time
             # Add rollout time to tensordict
             tensordict_out.set("rollout_time", torch.tensor(rollout_time).expand(tensordict_out.shape))
-            self._frames += tensordict_out.numel()
-            if self._frames >= total_frames:
-                self.env.close()
+            self._increment_frames(tensordict_out.numel())
 
             if self.split_trajs:
                 tensordict_out = split_trajectories(tensordict_out, prefix="collector")
             if self.postproc is not None:
                 tensordict_out = self.postproc(tensordict_out)
             if self._exclude_private_keys:
-
                 def is_private(key):
                     if isinstance(key, str) and key.startswith("_"):
                         return True
@@ -352,6 +416,12 @@ class SyncDataCollectorWrapper(SyncDataCollector):
                 # >>> assert data0["done"] is not data1["done"]
                 yield tensordict_out.clone()
 
+    def _increment_frames(self, numel):
+        self._frames += numel
+        completed = self._frames >= self.total_frames
+        if completed:
+            self.env.close()
+        return completed
 
 class ClipPPOLossWrapper(ClipPPOLoss):
     def __init__(
@@ -440,17 +510,17 @@ class ClipPPOLossWrapper(ClipPPOLoss):
             current_dist = self.actor_network.get_dist(tensordict)
             td_out.set("action_noise", current_dist.scale.mean())
         try:
-            kl = torch.distributions.kl.kl_divergence(previous_dist, current_dist).mean()
+            kl = torch.sum(torch.distributions.kl.kl_divergence(previous_dist, current_dist),axis=-1).mean()
         except NotImplementedError:
             x = previous_dist.sample(1)
             kl = (previous_dist.log_prob(x) - current_dist.log_prob(x)).mean(0)
         kl = kl.unsqueeze(-1)
         td_out.set("kl", kl)
         if self.entropy_bonus:
-            entropy = self.get_entropy_bonus(dist)
+            entropy = self._get_entropy(dist)
             td_out.set("entropy", entropy.detach().mean())  # for logging
             td_out.set("kl_approx", kl_approx.detach().mean())  # for logging
-            td_out.set("loss_entropy", -self.entropy_coef * entropy.sum(dim=-1).mean())
+            td_out.set("loss_entropy", -self.entropy_coef * entropy.mean())
         if self.critic_coef:
             loss_critic, value_clip_fraction = self.loss_critic(tensordict)
             td_out.set("loss_critic", loss_critic)
@@ -466,6 +536,26 @@ class ClipPPOLossWrapper(ClipPPOLoss):
         )
         return td_out
 
+    def _get_entropy(self, dist: d.Distribution) -> torch.Tensor | TensorDict:
+        try:
+            entropy = dist.entropy().sum(dim=-1)
+        except NotImplementedError:
+            if getattr(dist, "has_rsample", False):
+                x = dist.rsample((self.samples_mc_entropy,))
+            else:
+                x = dist.sample((self.samples_mc_entropy,))
+            with set_composite_lp_aggregate(False) if isinstance(
+                dist, CompositeDistribution
+            ) else contextlib.nullcontext():
+                log_prob = dist.log_prob(x)
+                if is_tensor_collection(log_prob):
+                    if isinstance(self.tensor_keys.sample_log_prob, NestedKey):
+                        log_prob = log_prob.get(self.tensor_keys.sample_log_prob)
+                    else:
+                        log_prob = log_prob.select(*self.tensor_keys.sample_log_prob)
+
+            entropy = -log_prob.mean(0)
+        return entropy.unsqueeze(-1)    
 
 class TrainerWrapper(Trainer):
     def __init__(self, num_mini_batches, lr_schedule: str, **kwargs):
@@ -539,7 +629,7 @@ class TrainerWrapper(Trainer):
                 losses_td = self.loss_module(sub_batch)
                 if self.lr_schedule == "adaptive":
                     desired_kl = self.loss_module.desired_kl
-                    kl = losses_td["kl"]
+                    kl = losses_td["kl"]                
                     if kl > desired_kl * 2.0:
                         self.learning_rate = max(1e-5, self.learning_rate / 1.5)
                     elif kl < desired_kl / 2.0 and kl > 0.0:

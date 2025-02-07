@@ -46,7 +46,6 @@ class AnymalDFlatPPORunnerCfg(AnymalDRoughPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
-        self.max_iterations = 300
-        self.experiment_name = "anymal_d_flat"
+        self.experiment_name = "anymal_d_flat_rslrl"
         self.policy.actor_hidden_dims = [128, 128, 128]
         self.policy.critic_hidden_dims = [128, 128, 128]

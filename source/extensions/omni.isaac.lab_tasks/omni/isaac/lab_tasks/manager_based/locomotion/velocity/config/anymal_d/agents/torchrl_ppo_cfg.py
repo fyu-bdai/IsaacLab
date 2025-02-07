@@ -3,7 +3,9 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import torch
 import torch.nn as nn
+from tensordict.nn.distributions import NormalParamExtractor
 from dataclasses import MISSING
 
 from omni.isaac.lab.utils import configclass
@@ -33,19 +35,40 @@ class AnymalDActorNN(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+class AnymalDActorModNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Linear(in_features=48, out_features=128, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=128, out_features=128, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=128, out_features=128, bias=True),
+            nn.ELU(alpha=1.0),
+            nn.Linear(in_features=128, out_features=12, bias=True),
+        )  
+        self.std = nn.Parameter(1.0 * torch.ones(12))
+
+    def forward(self, x):
+        action_mean = self.model(x)
+        batch_size = action_mean.shape[0]
+        std_broadcasted = self.std.unsqueeze(0).expand(batch_size, -1)
+        action_dist = torch.cat((action_mean, std_broadcasted), dim=1)
+        return action_dist
+
 
 class AnymalDCriticNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Linear(in_features=48, out_features=512, bias=True),
+            nn.Linear(in_features=48, out_features=128, bias=True),
             nn.ELU(alpha=1.0),
-            nn.Linear(in_features=512, out_features=256, bias=True),
+            nn.Linear(in_features=128, out_features=128, bias=True),
             nn.ELU(alpha=1.0),
-            nn.Linear(in_features=256, out_features=128, bias=True),
+            nn.Linear(in_features=128, out_features=128, bias=True),
             nn.ELU(alpha=1.0),
             nn.Linear(in_features=128, out_features=1, bias=True),
-        )
+        )  
 
     def forward(self, x):
         return self.model(x)
@@ -54,7 +77,7 @@ class AnymalDCriticNN(nn.Module):
 @configclass
 class AnymalDActorModule(ProbabilisticActorCfg):
 
-    actor_network = AnymalDActorNN
+    actor_network = AnymalDActorModNN
 
     init_noise_std = 1.0
 
@@ -100,7 +123,7 @@ class AnymalDPPOLossModule(ClipPPOLossCfg):
 
     value_key = "state_value"
 
-    desired_kl = 0.0012
+    desired_kl = 0.01
 
     beta = 1.0
 
@@ -108,11 +131,11 @@ class AnymalDPPOLossModule(ClipPPOLossCfg):
 
     increment = 2.0
 
-    value_loss_coef = 0.5
+    value_loss_coef = 1.0 #0.5
 
     clip_param = 0.2
 
-    entropy_coef = 0.02
+    entropy_coef = 0.005 #0.02
 
     entropy_bonus = True
 
@@ -151,7 +174,7 @@ class AnymalDPPORunnerCfg(OnPolicyPPORunnerCfg):
 
     lr_schedule = "adaptive"
 
-    max_iterations = 25000
+    max_iterations = 500 #25000
 
     save_interval = 50
 
@@ -173,7 +196,7 @@ class AnymalDFlatPPORunnerCfg(AnymalDPPORunnerCfg):
         self.experiment_name = "anymal_d_flat"
 
         # change wandb project
-        self.wandb_project = "anymal_d_flat"
+        self.wandb_project = "elin_test_anymal_d_flat"
 
 
 @configclass
