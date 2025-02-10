@@ -7,7 +7,7 @@ along with performance benchmarks across the libraries.
 The supported libraries are:
 
 - `SKRL <https://skrl.readthedocs.io>`__
-- `RSL-RL <https://github.com/leggedrobotics/rsl_rl>`__
+- `RSL-RL <https://github.com/bdaiinstitute/rsl_rl>`__
 - `RL-Games <https://github.com/Denys88/rl_games>`__
 - `Stable-Baselines3 <https://stable-baselines3.readthedocs.io/en/master/index.html>`__
 

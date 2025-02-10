@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -40,7 +40,7 @@ class RslRlVecEnvWrapper(VecEnv):
         wrapper.
 
     Reference:
-        https://github.com/leggedrobotics/rsl_rl/blob/master/rsl_rl/env/vec_env.py
+        https://github.com/bdaiinstitute/rsl_rl/blob/master/rsl_rl/env/vec_env.py
     """
 
     def __init__(self, env: ManagerBasedRLEnv | DirectRLEnv):

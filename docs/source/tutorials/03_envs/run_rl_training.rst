@@ -152,5 +152,5 @@ directory. You can also specify a specific checkpoint by passing the ``--checkpo
 .. _VecEnv API: https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html#vecenv-api-vs-gym-api
 .. _`stable_baselines3.common.vec_env.VecNormalize`: https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html#vecnormalize
 .. _RL-Games: https://github.com/Denys88/rl_games
-.. _RSL-RL: https://github.com/leggedrobotics/rsl_rl
+.. _RSL-RL: https://github.com/bdaiinstitute/rsl_rl
 .. _SKRL: https://skrl.readthedocs.io
