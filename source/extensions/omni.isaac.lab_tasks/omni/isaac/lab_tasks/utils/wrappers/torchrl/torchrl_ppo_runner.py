@@ -148,7 +148,7 @@ class OnPolicyPPORunner:
             total_frames=total_frames,
             split_trajs=self.collector_module_cfg.split_trajs,
             exploration_type=ExplorationType.RANDOM,
-            set_truncated=False,
+            set_truncated=True,
             device=self.device,
         )
 

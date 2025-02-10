@@ -131,11 +131,11 @@ class AnymalDPPOLossModule(ClipPPOLossCfg):
 
     increment = 2.0
 
-    value_loss_coef = 1.0 #0.5
+    value_loss_coef = 1.0
 
     clip_param = 0.2
 
-    entropy_coef = 0.005 #0.02
+    entropy_coef = 0.005
 
     entropy_bonus = True
 
@@ -196,7 +196,7 @@ class AnymalDFlatPPORunnerCfg(AnymalDPPORunnerCfg):
         self.experiment_name = "anymal_d_flat"
 
         # change wandb project
-        self.wandb_project = "elin_test_anymal_d_flat"
+        self.wandb_project = "elin_anymal_d_flat"
 
 
 @configclass

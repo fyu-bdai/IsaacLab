@@ -51,6 +51,11 @@ class TorchRLEnvWrapper(GymWrapper):
         self._curr_ep_len = torch.zeros(env.unwrapped.num_envs, device=env.unwrapped.device)
         self._curr_reward_sum = torch.zeros(env.unwrapped.num_envs, device=env.unwrapped.device)
         self._env_reset_mask = torch.zeros(env.unwrapped.num_envs, device=env.unwrapped.device, dtype=torch.bool)
+        self._set_seed(42)
+
+    def _set_seed(self, seed: Optional[int]):
+        rng = torch.manual_seed(seed)
+        self.rng = rng
 
     def maybe_reset(self, tensordict: TensorDictBase) -> TensorDictBase:
         """Checks the done keys of the input tensordict. Unlike the base GymWrapper implementation, we do not
@@ -163,6 +168,7 @@ class TorchRLEnvWrapper(GymWrapper):
         next_preset = tensordict.get("next", None)  # noqa: SIM910
         next_tensordict = self._step(tensordict)
         assert (tensordict["done"] == tensordict["terminated"] | tensordict["truncated"]).all()
+        assert (next_tensordict["done"] == next_tensordict["terminated"] | next_tensordict["truncated"]).all()
         next_tensordict = self._step_proc_data(next_tensordict)
         if next_preset is not None:
             # tensordict could already have a "next" key
@@ -182,7 +188,7 @@ class TorchRLEnvWrapper(GymWrapper):
     def _step(self, tensordict: TensorDictBase) -> TensorDictBase:
         action = tensordict.get(self.action_key)
         reward = 0
-        for i in range(self.wrapper_frame_skip):           
+        for i in range(self.wrapper_frame_skip):         
             (
                 obs,
                 _reward,
@@ -191,6 +197,7 @@ class TorchRLEnvWrapper(GymWrapper):
                 done,
                 info_dict,
             ) = self._output_transform(self._env.step(action))
+            ### print out data pointer 
             assert (done == terminated | truncated).all()
             if _reward is not None:
                 reward = reward + _reward
@@ -202,7 +209,7 @@ class TorchRLEnvWrapper(GymWrapper):
                 break
         reward = self.read_reward(reward)
         obs_dict = self.read_obs(obs)
-        obs_dict[self.reward_key] = reward
+        obs_dict[self.reward_key] = reward#.clone()
 
         # if truncated/terminated is not in the keys, we just don't pass it even if it
         # is defined.
@@ -257,7 +264,7 @@ class TorchRLEnvWrapper(GymWrapper):
                 for info_dict_reader in self.info_dict_reader:
                     out = info_dict_reader(info_dict, tensordict_out)
                     if out is not None:
-                        tensordict_out = out                            
+                        tensordict_out = out                      
         return tensordict_out        
 
     def _step_proc_data(self, next_tensordict_out):
@@ -376,6 +383,8 @@ class SyncDataCollectorWrapper(SyncDataCollector):
             start_time = time.perf_counter()
             tensordict_out = self.rollout()
             end_time = time.perf_counter()
+            assert (tensordict_out["done"] == tensordict_out["terminated"] | tensordict_out["truncated"]).all()
+            assert (tensordict_out["next"]["done"] == tensordict_out["next"]["terminated"] | tensordict_out["next"]["truncated"]).all()            
             rollout_time = end_time - start_time
             # Add rollout time to tensordict
             tensordict_out.set("rollout_time", torch.tensor(rollout_time).expand(tensordict_out.shape))

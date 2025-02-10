@@ -265,7 +265,6 @@ class GAE(ValueEstimatorBase):
         done = tensordict.get(("next", self.tensor_keys.done))
         terminated = tensordict.get(("next", self.tensor_keys.terminated))
         truncated = tensordict.get(("next", "truncated"))
-
         assert (done[terminated] == True).all()
         assert (done == terminated | truncated).all()
         if truncated.any():
