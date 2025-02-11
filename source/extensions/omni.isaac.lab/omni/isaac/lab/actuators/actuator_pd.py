@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -18,6 +18,7 @@ from .actuator_base import ActuatorBase
 if TYPE_CHECKING:
     from .actuator_cfg import (
         DCMotorCfg,
+        DelayedDCMotorCfg,
         DelayedPDActuatorCfg,
         IdealPDActuatorCfg,
         ImplicitActuatorCfg,
@@ -347,3 +348,136 @@ class RemotizedPDActuator(DelayedPDActuator):
         )
         self.applied_effort = control_action.joint_efforts
         return control_action
+
+
+class DelayedDCMotor(IdealPDActuator):
+    """This motor combines the benefits of the DC motor and the delayed PD motor.
+    This motor provides the following functionalities:
+    1. Implements a PD control identical to the IdealPDActuator class:
+     .. math::
+
+        \tau_{j, computed} = k_p * (q - q_{des}) + k_d * (\\dot{q} - \\dot{q}_{des}) + \tau_{ff}
+    2. Implements a DC motor actuator model with velocity-based saturation model similar to the DCMotor class:
+        .. math::
+
+        \tau_{j, max}(\\dot{q}) & = clip \\left (\tau_{j, sat} \times \\left(1 -
+            \frac{\\dot{q}}{\\dot{q}_{j, max}}\right), 0.0, \tau_{j, max} \right) \\
+        \tau_{j, min}(\\dot{q}) & = clip \\left (\tau_{j, sat} \times \\left( -1 -
+            \frac{\\dot{q}}{\\dot{q}_{j, max}}\right), - \tau_{j, max}, 0.0 \right)
+    3. Adds a delay to the actuator commands similar to the DelayedPDActuator class
+    4. Before clipping, this Actuator scales the computed effort depending on the motor_strength Cfg
+
+      """
+
+    cfg: DelayedDCMotorCfg
+    """The configuration for the actuator model."""
+
+    def __init__(self, cfg: DelayedPDActuatorCfg, *args, **kwargs):
+        super().__init__(cfg, *args, **kwargs)
+
+        # configs for the DC motor parameters
+        # parse configuration
+        if self.cfg.saturation_effort is not None:
+            self._saturation_effort = self.cfg.saturation_effort
+        else:
+            self._saturation_effort = torch.inf
+        # prepare joint vel buffer for max effort computation
+        self._joint_vel = torch.zeros_like(self.computed_effort)
+        # create buffer for zeros effort
+        self._zeros_effort = torch.zeros_like(self.computed_effort)
+        # check that quantities are provided
+        if self.cfg.velocity_limit is None:
+            raise ValueError("The velocity limit must be provided for the DC motor actuator model.")
+
+        # configs for the delayes actuator
+        # instantiate the delay buffers
+        self.positions_delay_buffer = DelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
+        self.velocities_delay_buffer = DelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
+        self.efforts_delay_buffer = DelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
+        # all of the envs
+        self._ALL_INDICES = torch.arange(self._num_envs, dtype=torch.long, device=self._device)
+
+        # configs for the motor strength
+        if self.cfg.motor_strength is not None:
+            self._motor_strength_ranges = self.cfg.motor_strength
+        else:
+            self._motor_strength_ranges = (1.0, 1.0)
+
+        self._motor_strength = torch.empty((len(self.computed_effort), 1), device=self._device)
+        self._current_motor_strength = self._motor_strength.uniform_(*self._motor_strength_ranges)
+
+    """
+    Operations.
+    """
+
+    def reset(self, env_ids: Sequence[int]):
+        super().reset(env_ids)
+        # number of environments (since env_ids can be a slice)
+        if env_ids is None or env_ids == slice(None):
+            num_envs = self._num_envs
+        else:
+            num_envs = len(env_ids)
+        # set a new random delay for environments in env_ids
+        time_lags = torch.randint(
+            low=self.cfg.min_delay,
+            high=self.cfg.max_delay + 1,
+            size=(num_envs,),
+            dtype=torch.int,
+            device=self._device,
+        )
+        # set delays
+        self.positions_delay_buffer.set_time_lag(time_lags, env_ids)
+        self.velocities_delay_buffer.set_time_lag(time_lags, env_ids)
+        self.efforts_delay_buffer.set_time_lag(time_lags, env_ids)
+        # reset buffers
+        self.positions_delay_buffer.reset(env_ids)
+        self.velocities_delay_buffer.reset(env_ids)
+        self.efforts_delay_buffer.reset(env_ids)
+
+        # resample a motor strength within the motor strength ranges
+        self._current_motor_strength[env_ids] = self._motor_strength.uniform_(*self._motor_strength_ranges)[env_ids]
+
+    def compute(
+        self, control_action: ArticulationActions, joint_pos: torch.Tensor, joint_vel: torch.Tensor
+    ) -> ArticulationActions:
+        # save current joint vel for the DC motor clips
+        self._joint_vel[:] = joint_vel
+
+        # apply delay based on the delay the model for all the setpoints
+        control_action.joint_positions = self.positions_delay_buffer.compute(control_action.joint_positions)
+        control_action.joint_velocities = self.velocities_delay_buffer.compute(control_action.joint_velocities)
+        control_action.joint_efforts = self.efforts_delay_buffer.compute(control_action.joint_efforts)
+
+        # compute errors
+        error_pos = control_action.joint_positions - joint_pos
+        error_vel = control_action.joint_velocities - joint_vel
+        # calculate the desired joint torques
+        self.computed_effort = self.stiffness * error_pos + self.damping * error_vel + control_action.joint_efforts
+
+        # scale the torques based on the motor strength
+        self.computed_effort *= self._current_motor_strength
+
+        # clip the torques based on the motor limits
+        self.applied_effort = self._clip_effort(self.computed_effort)
+
+        # set the computed actions back into the control action
+        control_action.joint_efforts = self.applied_effort
+        control_action.joint_positions = None
+        control_action.joint_velocities = None
+        return control_action
+
+    """
+    Helper functions.
+    """
+
+    def _clip_effort(self, effort: torch.Tensor) -> torch.Tensor:
+        # compute torque limits
+        # -- max limit
+        max_effort = self._saturation_effort * (1.0 - self._joint_vel / self.velocity_limit)
+        max_effort = torch.clip(max_effort, min=self._zeros_effort, max=self.effort_limit)
+        # -- min limit
+        min_effort = self._saturation_effort * (-1.0 - self._joint_vel / self.velocity_limit)
+        min_effort = torch.clip(min_effort, min=-self.effort_limit, max=self._zeros_effort)
+
+        # clip the torques based on the motor limits
+        return torch.clip(effort, min=min_effort, max=max_effort)
