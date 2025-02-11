@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+from collections.abc import Callable
 from dataclasses import MISSING
 from typing import Literal
 
@@ -88,6 +89,14 @@ class RslRlPpoAlgorithmCfg:
 
     max_grad_norm: float = MISSING
     """The maximum gradient norm."""
+
+
+@configclass
+class RslRlPpoSymmetryAugAlgorithmCfg(RslRlPpoAlgorithmCfg):
+    """Configuration for the PPO algorithm with symmetry augmentation."""
+
+    symmetry_augmentation_func: Callable | None = None
+    """The function used for data augmentation. Defaults to None, in which case no symmetry is used."""
 
 
 @configclass

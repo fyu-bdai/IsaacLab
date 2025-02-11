@@ -11,5 +11,6 @@ from .rl_cfg import (
     RslRlPpoActorCriticCfg,
     RslRlPpoActorCriticRecurrentCfg,
     RslRlPpoAlgorithmCfg,
+    RslRlPpoSymmetryAugAlgorithmCfg,
 )
 from .vecenv_wrapper import RslRlVecEnvWrapper
