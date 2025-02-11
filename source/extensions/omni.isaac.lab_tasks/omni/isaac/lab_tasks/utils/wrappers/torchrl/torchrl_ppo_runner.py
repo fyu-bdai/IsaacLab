@@ -234,7 +234,7 @@ class OnPolicyPPORunner:
     def compute_advantages(self, batch):
         assert ((batch["done"] == batch["terminated"] | batch["truncated"]).all())
         td = self.advantage_module(batch)
-        self.curr_advantage = torch.mean(td["advantage"])
+        self.curr_advantage = torch.mean(torch.squeeze(td["advantage"]))
 
     def log_advantages(self, batch):
         log_dict = {}
