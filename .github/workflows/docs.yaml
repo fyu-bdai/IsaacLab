@@ -14,7 +14,7 @@ concurrency:
 jobs:
   check-secrets:
     name: Check secrets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       trigger-deploy: ${{ steps.trigger-deploy.outputs.defined }}
     steps:
@@ -26,8 +26,13 @@ jobs:
       run: echo "defined=true" >> "$GITHUB_OUTPUT"
 
   build-docs:
+<<<<<<< HEAD
     name: Build Docs
     runs-on: ubuntu-latest
+=======
+    name: Build and deploy documentation
+    runs-on: ubuntu-22.04
+>>>>>>> upstream/main
     needs: [check-secrets]
 
     steps:

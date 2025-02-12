@@ -69,6 +69,7 @@ from omni.isaac.cloner import GridCloner
 from omni.isaac.core.simulation_context import SimulationContext
 from omni.isaac.core.utils.carb import set_carb_setting
 
+import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.utils import Timer
 from omni.isaac.lab.utils.assets import check_file_path
 
@@ -89,6 +90,10 @@ def main():
     # enable hydra scene-graph instancing
     # this is needed to visualize the scene when flatcache is enabled
     set_carb_setting(sim._settings, "/persistent/omnihydra/useSceneGraphInstancing", True)
+
+    # Ground plane to observe cloned objects on
+    cfg_ground = sim_utils.GroundPlaneCfg()
+    cfg_ground.func("/World/defaultGroundPlane", cfg_ground)
 
     # Create interface to clone the scene
     cloner = GridCloner(spacing=args_cli.spacing)

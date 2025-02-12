@@ -280,6 +280,7 @@ class ManagerBasedEnv:
 
         # reset state of scene
         self._reset_idx(env_ids)
+<<<<<<< HEAD
 
         # update articulation kinematics
         self.scene.write_data_to_sim()
@@ -332,19 +333,77 @@ class ManagerBasedEnv:
 
         # update articulation kinematics
         self.sim.forward()
+=======
+        self.scene.write_data_to_sim()
+
+        # trigger recorder terms for post-reset calls
+        self.recorder_manager.record_post_reset(env_ids)
+>>>>>>> upstream/main
 
         # if sensors are added to the scene, make sure we render to reflect changes in reset
         if self.sim.has_rtx_sensors() and self.cfg.rerender_on_reset:
             self.sim.render()
 
+<<<<<<< HEAD
         # trigger recorder terms for post-reset calls
         self.recorder_manager.record_post_reset(env_ids)
+
+=======
+>>>>>>> upstream/main
+        # compute observations
+        self.obs_buf = self.observation_manager.compute()
+
+        # return observations
+        return self.obs_buf, self.extras
+<<<<<<< HEAD
+=======
+
+    def reset_to(
+        self,
+        state: dict[str, dict[str, dict[str, torch.Tensor]]],
+        env_ids: Sequence[int] | None,
+        seed: int | None = None,
+        is_relative: bool = False,
+    ) -> None:
+        """Resets specified environments to known states.
+
+        Note that this is different from reset() function as it resets the environments to specific states
+
+        Args:
+            state: The state to reset the specified environments to.
+            env_ids: The environment ids to reset. Defaults to None, in which case all environments are reset.
+            seed: The seed to use for randomization. Defaults to None, in which case the seed is not set.
+            is_relative: If set to True, the state is considered relative to the environment origins. Defaults to False.
+        """
+        # reset all envs in the scene if env_ids is None
+        if env_ids is None:
+            env_ids = torch.arange(self.num_envs, dtype=torch.int64, device=self.device)
+
+        # trigger recorder terms for pre-reset calls
+        self.recorder_manager.record_pre_reset(env_ids)
+
+        # set the seed
+        if seed is not None:
+            self.seed(seed)
+
+        self._reset_idx(env_ids)
+
+        # set the state
+        self.scene.reset_to(state, env_ids, is_relative=is_relative)
+
+        # trigger recorder terms for post-reset calls
+        self.recorder_manager.record_post_reset(env_ids)
+
+        # if sensors are added to the scene, make sure we render to reflect changes in reset
+        if self.sim.has_rtx_sensors() and self.cfg.rerender_on_reset:
+            self.sim.render()
 
         # compute observations
         self.obs_buf = self.observation_manager.compute()
 
         # return observations
         return self.obs_buf, self.extras
+>>>>>>> upstream/main
 
     def step(self, action: torch.Tensor) -> tuple[VecEnvObs, dict]:
         """Execute one time-step of the environment's dynamics.

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Copyright (c) 2022-2025, The Isaac Lab Project Developers.
+=======
+# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+>>>>>>> upstream/main
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -15,7 +19,11 @@ from .imu import Imu
 
 @configclass
 class ImuCfg(SensorBaseCfg):
+<<<<<<< HEAD
     """Configuration for an Inertial Measurement Unit (IMU) sensor."""
+=======
+    """Configuration for an inertial measurement unit (Imu) sensor."""
+>>>>>>> upstream/main
 
     class_type: type = Imu
 
@@ -37,6 +45,10 @@ class ImuCfg(SensorBaseCfg):
 
     This attribute is only used when debug visualization is enabled.
     """
+<<<<<<< HEAD
+=======
+
+>>>>>>> upstream/main
     gravity_bias: tuple[float, float, float] = (0.0, 0.0, 9.81)
     """The linear acceleration bias applied to the linear acceleration in the world frame (x,y,z).
 

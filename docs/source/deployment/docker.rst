@@ -70,18 +70,26 @@ Obtaining the Isaac Sim Container
 Directory Organization
 ----------------------
 
-The root of the Isaac Lab repository contains the ``docker`` directory that has various files and scripts
+The root of the Isaac Lab repository contains the ``docker`` directory that has various files, scripts and subdirectories
 needed to run Isaac Lab inside a Docker container. A subset of these are summarized below:
 
-* **Dockerfile.base**: Defines the base Isaac Lab image by overlaying its dependencies onto the Isaac Sim Docker image.
-  Dockerfiles which end with something else, (i.e. ``Dockerfile.ros2``) build an `image extension <#isaac-lab-image-extensions>`_.
-* **docker-compose.yaml**: Creates mounts to allow direct editing of Isaac Lab code from the host machine that runs
-  the container. It also creates several named volumes such as ``isaac-cache-kit`` to
-  store frequently re-used resources compiled by Isaac Sim, such as shaders, and to retain logs, data, and documents.
-* **.env.base**: Stores environment variables required for the ``base`` build process and the container itself. ``.env``
-  files which end with something else (i.e. ``.env.ros2``) define these for `image extension <#isaac-lab-image-extensions>`_.
-* **container.py**: A utility script that interfaces with tools in ``utils`` to configure and build the image,
+* ``Dockerfile``: Defines multiple stages for IsaacLab usage, and builds up to ``stage`` defined by the ``TARGET`` in
+  ``yamls/base.yaml``.
+
+  * The ``base`` stage overlays Isaac Lab dependencies onto the Isaac Sim Docker image and installs included rl_frameworks
+    and core IsaacLab extensions.
+  * The ``ros2`` stage adds an installation of ROS2 and attempts to install the rosdeps of any extension under ``/IsaacLab/source/extensions`` with
+    ``[isaac_lab_settings.ros_ws]`` defined in their ``config/extension.toml``.
+* ``.env``: Stores certain environment variables which are widely used across various ``yamls`` and are centrally defined here and loaded for interpolation
+  in possible passthrough in ``yamls``.
+* ``container.py``: A script that interfaces with tools in ``isaaclab_container_utils`` to configure and build the image,
   and run and interact with the container.
+* ``yamls/``: A set of ``yamls`` which provide a framework for building and running the images defined in ``Dockerfile``. For each ``stage`` within
+  the ``Dockerfile``, each yaml supplies the relevant arguments in correspondingly named yaml files (``base.yaml``, ``ros2.yaml``). These provide basic runtime configuration
+  such as GPU access, mounts and volumes, as well as environment variables used at build and runtime. The ``stages`` which build upon each other in the Dockerfile (such as ``ros2`` upon ``base``)
+  are likewise reflected in the ``extends`` directive of their yamls. There are also snippets such as ``x11.yaml`` and ``isaaclab_volumes.yaml`` which are not valid
+  ``docker-compose.yaml`` files on their own and are separated out to make them optional or more portable.
+
 
 Running the Container
 ---------------------
@@ -100,17 +108,16 @@ Running the Container
       for the ``_build`` subdirectory where build artifacts are stored.
 
 
-The script ``container.py`` parallels basic ``docker compose`` commands. Each can accept an `image extension argument <#isaac-lab-image-extensions>`_,
-or else they will default to the ``base`` image extension. These commands are:
+The script ``container.py`` parallels several ``docker compose`` commands. Each can accept a ``target``,
+or else they will default to target ``base``:
 
-* **start**: This builds the image and brings up the container in detached mode (i.e. in the background).
-* **enter**: This begins a new bash process in an existing Isaac Lab container, and which can be exited
-  without bringing down the container.
-* **config**: This outputs the compose.yaml which would be result from the inputs given to ``container.py start``. This command is useful
-  for debugging a compose configuration.
-* **copy**: This copies the ``logs``, ``data_storage`` and ``docs/_build`` artifacts, from the ``isaac-lab-logs``, ``isaac-lab-data`` and ``isaac-lab-docs``
-  volumes respectively, to the ``docker/artifacts`` directory. These artifacts persist between docker container instances and are shared between image extensions.
-* **stop**: This brings down the container and removes it.
+1. ``start``: This builds the image and brings up the container in detached mode (i.e. in the background).
+2. ``build``: This builds the image but does not bring it up.
+3. ``copy``: This copies the ``logs``, ``data_storage`` and ``docs/_build`` artifacts, from the ``isaac-lab-logs``, ``isaac-lab-data`` and ``isaac-lab-docs``
+   volumes respectively, to the ``docker/artifacts`` directory. These artifacts persist between docker container instances and are shared between image extensions.
+4. ``config``: This will output the resolved ``docker-compose.yaml`` which will be the output of a call to ``container.py``. It is useful for debugging.
+5. ``enter``: This begins a new bash process in an existing isaaclab container, and which can be exited without bringing down the container.
+6. ``stop``: This brings down the container and removes it.
 
 The following shows how to launch the container in a detached state and enter it:
 
@@ -118,49 +125,29 @@ The following shows how to launch the container in a detached state and enter it
 
     # Launch the container in detached mode
     # We don't pass an image extension arg, so it defaults to 'base'
-    ./docker/container.py start
-
-    # If we want to add .env or .yaml files to customize our compose config,
-    # we can simply specify them in the same manner as the compose cli
-    # ./docker/container.py start --file my-compose.yaml --env-file .env.my-vars
-
+    python docker/container.py start
     # Enter the container
     # We pass 'base' explicitly, but if we hadn't it would default to 'base'
-    ./docker/container.py enter base
+    python docker/container.py enter base
 
-To copy files from the base container to the host machine, you can use the following command:
+To copy files from the base container to the host machine, you can use ``./container.py copy``. This is a
+wrapper around ``docker cp`` to copy the ``logs`` , ``data_storage`` and ``docs/_build`` directories to the
+``docker/artifacts`` directory. This is useful for copying the logs, data and documentation:
 
 .. code:: bash
 
     # Copy the file /workspace/isaaclab/logs to the current directory
     docker cp isaac-lab-base:/workspace/isaaclab/logs .
 
-The script ``container.py`` provides a wrapper around this command to copy the ``logs`` , ``data_storage`` and ``docs/_build``
-directories to the ``docker/artifacts`` directory. This is useful for copying the logs, data and documentation:
+    # Or, you can use 'container.py copy'
+    python docker/container.py copy
+
+Lastly, we can bring down the container with the following command:
 
 .. code:: bash
 
     # stop the container
-    ./docker/container.py stop
-
-
-X11 forwarding
-~~~~~~~~~~~~~~
-
-The container supports X11 forwarding, which allows the user to run GUI applications from the container
-and display them on the host machine.
-
-The first time a container is started with ``./docker/container.py start``, the script prompts
-the user whether to activate X11 forwarding. This will create a file at ``docker/.container.cfg``
-to store the user's choice for future runs.
-
-If you want to change the choice, you can set the parameter ``X11_FORWARDING_ENABLED`` to '0' or '1'
-in the ``docker/.container.cfg`` file to disable or enable X11 forwarding, respectively. After that, you need to
-re-build the container by running ``./docker/container.py start``. The rebuilding process ensures that the changes
-are applied to the container. Otherwise, the changes will not take effect.
-
-After the container is started, you can enter the container and run GUI applications from it with X11 forwarding enabled.
-The display will be forwarded to the host machine.
+    python docker/container.py stop
 
 
 Python Interpreter
@@ -179,52 +166,21 @@ interpreter. You can use the following commands to run the Python interpreter:
 Understanding the mounted volumes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``docker-compose.yaml`` file creates several named volumes that are mounted to the container.
+The ``isaaclab_volumes.yaml`` file creates several named volumes that are mounted to the container in ``base.yaml``.
 These are summarized below:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 23 45 32
-
-   * - Volume Name
-     - Description
-     - Container Path
-   * - isaac-cache-kit
-     - Stores cached Kit resources
-     - /isaac-sim/kit/cache
-   * - isaac-cache-ov
-     - Stores cached OV resources
-     - /root/.cache/ov
-   * - isaac-cache-pip
-     - Stores cached pip resources
-     - /root/.cache/pip
-   * - isaac-cache-gl
-     - Stores cached GLCache resources
-     - /root/.cache/nvidia/GLCache
-   * - isaac-cache-compute
-     - Stores cached compute resources
-     - /root/.nv/ComputeCache
-   * - isaac-logs
-     - Stores logs generated by Omniverse
-     - /root/.nvidia-omniverse/logs
-   * - isaac-carb-logs
-     - Stores logs generated by carb
-     - /isaac-sim/kit/logs/Kit/Isaac-Sim
-   * - isaac-data
-     - Stores data generated by Omniverse
-     - /root/.local/share/ov/data
-   * - isaac-docs
-     - Stores documents generated by Omniverse
-     - /root/Documents
-   * - isaac-lab-docs
-     - Stores documentation of Isaac Lab when built inside the container
-     - /workspace/isaaclab/docs/_build
-   * - isaac-lab-logs
-     - Stores logs generated by Isaac Lab workflows when run inside the container
-     - /workspace/isaaclab/logs
-   * - isaac-lab-data
-     - Stores whatever data users may want to preserve between container runs
-     - /workspace/isaaclab/data_storage
+* ``isaac-cache-kit``: This volume is used to store cached Kit resources (``/isaac-sim/kit/cache`` in container)
+* ``isaac-cache-ov``: This volume is used to store cached OV resources (``/root/.cache/ov`` in container)
+* ``isaac-cache-pip``: This volume is used to store cached pip resources (``/root/.cache/pip`` in container)
+* ``isaac-cache-gl``: This volume is used to store cached GLCache resources (``/root/.cache/nvidia/GLCache`` in container)
+* ``isaac-cache-compute``: This volume is used to store cached compute resources (``/root/.nv/ComputeCache`` in container)
+* ``isaac-logs``: This volume is used to store logs generated by Omniverse. (``/root/.nvidia-omniverse/logs`` in container)
+* ``isaac-carb-logs``: This volume is used to store logs generated by carb. (``/isaac-sim/kit/logs/Kit/Isaac-Sim`` in container)
+* ``isaac-data``: This volume is used to store data generated by Omniverse. (``/root/.local/share/ov/data`` in container)
+* ``isaac-docs``: This volume is used to store documents generated by Omniverse. (``/root/Documents`` in container)
+* ``isaac-lab-docs``: This volume is used to store documentation of Isaac Lab when built inside the container. (``/workspace/isaaclab/docs/_build`` in container)
+* ``isaac-lab-logs``: This volume is used to store logs generated by Isaac Lab workflows when run inside the container. (``/workspace/isaaclab/logs`` in container)
+* ``isaac-lab-data``: This volume is used to store whatever data users may want to preserve between container runs. (``/workspace/isaaclab/data_storage`` in container)
 
 To view the contents of these volumes, you can use the following command:
 
@@ -236,48 +192,36 @@ To view the contents of these volumes, you can use the following command:
     docker volume inspect isaac-cache-kit
 
 
-
-Isaac Lab Image Extensions
---------------------------
+Isaac Lab Image Targets
+-----------------------
 
 The produced image depends upon the arguments passed to ``container.py start`` and ``container.py stop``. These
-commands accept an image extension parameter as an additional argument. If no argument is passed, then this
-parameter defaults to ``base``. Currently, the only valid values are (``base``, ``ros2``).
-Only one image extension can be passed at a time. The produced container will be named ``isaac-lab-${profile}``,
-where ``${profile}`` is the image extension name.
+commands accept a ``target`` stage as an additional argument, resolved to ``TARGET`` in ``base.yaml``. If no argument is passed,
+the default stage is ``base``. Currently, the only valid ``targets`` in IsaacLab are (``base``, ``ros2``).
+Only one ``target`` can be passed at a time, and the produced container will be named ``isaac-lab-{TARGET}``.
 
 .. code:: bash
 
     # start base by default
-    ./docker/container.py start
+    python docker/container.py start
     # stop base explicitly
-    ./docker/container.py stop base
+    python docker/container.py stop base
     # start ros2 container
-    ./docker/container.py start ros2
+    python docker/container.py start ros2
     # stop ros2 container
-    ./docker/container.py stop ros2
+    python docker/container.py stop ros2
 
-The passed image extension argument will build the image defined in ``Dockerfile.${image_extension}``,
-with the corresponding `profile`_ in the ``docker-compose.yaml`` and the envars from ``.env.${image_extension}``
-in addition to the ``.env.base``, if any.
+A ``./container.py start/build`` command passed a ``target`` argument will build the image up to the target stage as
+defined in ``Dockerfile``, using the corresponding file under ``yamls/``.
 
-ROS2 Image Extension
-~~~~~~~~~~~~~~~~~~~~
+ROS2 Image Target
+~~~~~~~~~~~~~~~~~
 
-In ``Dockerfile.ros2``, the container installs ROS2 Humble via an `apt package`_, and it is sourced in the ``.bashrc``.
-The exact version is specified by the variable ``ROS_APT_PACKAGE`` in the ``.env.ros2`` file,
-defaulting to ``ros-base``. Other relevant ROS2 variables are also specified in the ``.env.ros2`` file,
-including variables defining the `various middleware`_ options.
-
-The container defaults to ``FastRTPS``, but ``CylconeDDS`` is also supported. Each of these middlewares can be
-`tuned`_ using their corresponding ``.xml`` files under ``docker/.ros``.
-
-
-.. dropdown:: Parameters for ROS2 Image Extension
-   :icon: code
-
-   .. literalinclude:: ../../../docker/.env.ros2
-      :language: bash
+In ``Dockerfile`` stage ``ros2``, the container installs ROS2 Humble via an `apt package`_, and it is sourced in the ``.bashrc``.
+The exact version is specified by the variable ``ROS_APT_PACKAGE`` in the ``ros2.yaml`` file,
+defaulting to ``ros-base``. Other relevant ROS2 variables are also specified with ENVs in the ``Dockerfile``,
+including variables defining the `various middleware`_ options. The container defaults to ``FastRTPS``, but ``CylconeDDS``
+is also supported. Each of these middlewares can be `tuned`_ using their corresponding ``.xml`` files under ``docker/.ros``.
 
 
 Known Issues

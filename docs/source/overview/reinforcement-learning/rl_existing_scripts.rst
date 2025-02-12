@@ -46,7 +46,7 @@ RSL-RL
 ------
 
 -  Training an agent with
-   `RSL-RL <https://github.com/leggedrobotics/rsl_rl>`__ on ``Isaac-Reach-Franka-v0``:
+   `RSL-RL <https://github.com/bdaiinstitute/rsl_rl>`__ on ``Isaac-Reach-Franka-v0``:
 
    .. tab-set::
       :sync-group: os

@@ -35,7 +35,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # load variables to set the Isaac Lab path on the cluster
 source $SCRIPT_DIR/.env.cluster
-source $SCRIPT_DIR/../.env.base
+source $SCRIPT_DIR/../.env
 
 # make sure that all directories exists in cache directory
 setup_directories

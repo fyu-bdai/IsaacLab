@@ -240,16 +240,23 @@ class RayCaster(SensorBase):
         self._data.quat_w[env_ids] = quat_w
 
         # ray cast based on the sensor poses
-        if self.cfg.attach_yaw_only:
+        if self.cfg.ray_alignment == "world":
+            # no rotation is considered and directions are not rotated
+            ray_starts_w = self.ray_starts[env_ids]
+            ray_starts_w += pos_w.unsqueeze(1)
+            ray_directions_w = self.ray_directions[env_ids]
+        elif self.cfg.ray_alignment == "yaw":
             # only yaw orientation is considered and directions are not rotated
             ray_starts_w = quat_apply_yaw(quat_w.repeat(1, self.num_rays), self.ray_starts[env_ids])
             ray_starts_w += pos_w.unsqueeze(1)
             ray_directions_w = self.ray_directions[env_ids]
-        else:
+        elif self.cfg.ray_alignment == "base":
             # full orientation is considered
             ray_starts_w = quat_apply(quat_w.repeat(1, self.num_rays), self.ray_starts[env_ids])
             ray_starts_w += pos_w.unsqueeze(1)
             ray_directions_w = quat_apply(quat_w.repeat(1, self.num_rays), self.ray_directions[env_ids])
+        else:
+            raise RuntimeError(f"Unsupported ray_alignment type: {self.cfg.ray_alignment}.")
         # ray cast and store the hits
         # TODO: Make this work for multiple meshes?
         self._data.ray_hits_w[env_ids] = raycast_mesh(

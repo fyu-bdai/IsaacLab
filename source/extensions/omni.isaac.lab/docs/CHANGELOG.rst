@@ -1,6 +1,7 @@
 Changelog
 ---------
 
+<<<<<<< HEAD
 0.30.3 (2025-01-02)
 ~~~~~~~~~~~~~~~~~~~
 
@@ -150,6 +151,8 @@ Fixed
 * Modified :class:`omni.isaac.lab.envs.mdp.actions.DifferentialInverseKinematicsAction` class to use the geometric
   Jacobian computed w.r.t. to the root frame of the robot. This helps ensure that root pose does not affect the tracking.
 
+=======
+>>>>>>> upstream/main
 
 0.27.24 (2024-12-09)
 ~~~~~~~~~~~~~~~~~~~~
@@ -161,6 +164,7 @@ Fixed
   return only the states of the specified environment IDs.
 
 
+<<<<<<< HEAD
 0.27.23 (2024-12-06)
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -228,6 +232,8 @@ Fixed
 * Fixed the order of the incoming parameters in :class:`omni.isaac.lab.envs.DirectMARLEnv` to correctly use ``NoiseModel`` in marl-envs.
 
 
+=======
+>>>>>>> upstream/main
 0.27.17 (2024-12-02)
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -243,6 +249,7 @@ Added
 * Added ``replay_demos.py`` script to replay demos loaded from an HDF5 file.
 
 
+<<<<<<< HEAD
 0.27.16 (2024-11-21)
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -253,11 +260,15 @@ Changed
 
 
 0.27.15 (2024-11-09)
+=======
+0.27.23 (2024-12-06)
+>>>>>>> upstream/main
 ~~~~~~~~~~~~~~~~~~~~
 
 Fixed
 ^^^^^
 
+<<<<<<< HEAD
 * Fixed indexing in :meth:`omni.isaac.lab.assets.Articulation.write_joint_limits_to_sim` to correctly process non-None ``env_ids`` and ``joint_ids``.
 
 
@@ -372,6 +383,12 @@ Fixed
 0.27.3 (2024-10-22)
 ~~~~~~~~~~~~~~~~~~~
 
+=======
+* Fixed the enforcement of :attr:`~omni.isaac.lab.actuators.ActuatorBaseCfg.velocity_limits` at the
+  :attr:`~omni.isaac.lab.assets.Articulation.root_physx_view` level.
+
+
+>>>>>>> upstream/main
 Fixed
 ^^^^^
 
@@ -379,6 +396,7 @@ Fixed
   configclass objects were not converted to dictionary properly when ``to_dict`` function was called.
 
 
+<<<<<<< HEAD
 0.27.2 (2024-10-21)
 ~~~~~~~~~~~~~~~~~~~
 
@@ -447,6 +465,8 @@ Changed
   in favor of :attr:`observation_spaces`, :attr:`action_spaces` and :attr:`state_space` respectively.
 
 
+=======
+>>>>>>> upstream/main
 0.25.1 (2024-10-10)
 ~~~~~~~~~~~~~~~~~~~
 

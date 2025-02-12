@@ -18,9 +18,19 @@ simulation_app = AppLauncher(headless=True).app
 import torch
 import unittest
 from collections import namedtuple
+from typing import TYPE_CHECKING
 
-from omni.isaac.lab.managers import ManagerTermBase, ObservationGroupCfg, ObservationManager, ObservationTermCfg
+from omni.isaac.lab.managers import (
+    ManagerTermBase,
+    ObservationGroupCfg,
+    ObservationManager,
+    ObservationTermCfg,
+    RewardTermCfg,
+)
 from omni.isaac.lab.utils import configclass, modifiers
+
+if TYPE_CHECKING:
+    from omni.isaac.lab.envs import ManagerBasedEnv
 
 
 def grilled_chicken(env):
@@ -376,10 +386,17 @@ class TestObservationManager(unittest.TestCase):
         # check the observation shape
         self.assertEqual((self.env.num_envs, 23), obs_policy.shape)
         # check the observation data
+<<<<<<< HEAD
         expected_obs_term_1_data = torch.ones(self.env.num_envs, 4 * HISTORY_LENGTH, device=self.env.device)
         expected_obs_term_2_data = lin_vel_w_data(self.env)
         expected_obs_data_t0 = torch.concat((expected_obs_term_1_data, expected_obs_term_2_data), dim=-1)
         print(expected_obs_data_t0, obs_policy)
+=======
+        expected_obs_term_1_data = torch.zeros(self.env.num_envs, 4 * HISTORY_LENGTH, device=self.env.device)
+        expected_obs_term_1_data[:, -4:] = torch.ones(4, device=self.env.device)
+        expected_obs_term_2_data = lin_vel_w_data(self.env)
+        expected_obs_data_t0 = torch.concat((expected_obs_term_1_data, expected_obs_term_2_data), dim=-1)
+>>>>>>> upstream/main
         self.assertTrue(torch.equal(expected_obs_data_t0, obs_policy))
         # test that the history buffer holds previous data
         for _ in range(HISTORY_LENGTH):
@@ -442,6 +459,7 @@ class TestObservationManager(unittest.TestCase):
         self.assertEqual((self.env.num_envs, 163840), obs_policy_flat.shape)
         self.assertEqual((self.env.num_envs, HISTORY_LENGTH, 128, 256, 1), obs_policy.shape)
 
+<<<<<<< HEAD
     def test_compute_with_group_history(self):
         """Test the observation computation with group level history buffer configuration."""
         TERM_HISTORY_LENGTH = 5
@@ -498,6 +516,8 @@ class TestObservationManager(unittest.TestCase):
         self.obs_man.reset(reset_env_ids)
         self.assertTrue(torch.equal(expected_obs_data_t0[reset_env_ids], obs_policy[reset_env_ids]))
 
+=======
+>>>>>>> upstream/main
     def test_invalid_observation_config(self):
         """Test the invalid observation config."""
 
@@ -653,6 +673,42 @@ class TestObservationManager(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.obs_man = ObservationManager(cfg, self.env)
+
+    def test_serialize(self):
+        """Test serialize call for ManagerTermBase terms."""
+
+        serialize_data = {"test": 0}
+
+        class test_serialize_term(ManagerTermBase):
+
+            def __init__(self, cfg: RewardTermCfg, env: ManagerBasedEnv):
+                super().__init__(cfg, env)
+
+            def __call__(self, env: ManagerBasedEnv) -> torch.Tensor:
+                return grilled_chicken(env)
+
+            def serialize(self) -> dict:
+                return serialize_data
+
+        @configclass
+        class MyObservationManagerCfg:
+            """Test config class for observation manager."""
+
+            @configclass
+            class PolicyCfg(ObservationGroupCfg):
+                """Test config class for policy observation group."""
+
+                concatenate_terms = False
+                term_1 = ObservationTermCfg(func=test_serialize_term)
+
+            policy: ObservationGroupCfg = PolicyCfg()
+
+        # create observation manager
+        cfg = MyObservationManagerCfg()
+        self.obs_man = ObservationManager(cfg, self.env)
+
+        # check expected output
+        self.assertEqual(self.obs_man.serialize(), {"policy": {"term_1": serialize_data}})
 
 
 if __name__ == "__main__":

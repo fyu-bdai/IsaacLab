@@ -153,6 +153,9 @@ logSysStdOutput = false
 persistent = true
 dev_build = false
 fabricDefaultStageFrameHistoryCount = 3 # needed for omni.syntheticdata TODO105 Still True?
+# We set this to false to prevent inherited non-extant extension
+# directories from being created
+extensions.mkdirExtFolders = false
 
 [settings.app.window]
 title = "Isaac Sim Python"
@@ -233,6 +236,12 @@ app.vulkan = true
 # disable replicator orchestrator for better runtime perf
 exts."omni.replicator.core".Orchestrator.enabled = false
 
+# set the default ros bridge to not be enabled on startup
+isaac.startup.ros_bridge_extension = ""
+
+# set the default ros bridge to not be enabled on startup
+isaac.startup.ros_bridge_extension = ""
+
 # hide NonToggleable Exts
 exts."omni.kit.window.extensions".hideNonToggleableExts = true
 exts."omni.kit.window.extensions".showFeatureOnly = false
@@ -285,7 +294,7 @@ changeWindowRegion = true
 
 # Register extension folder from this repo in kit
 [settings.app.exts]
-folders = [
+folders.'++' = [
     "${exe-path}/exts",  # kit extensions
     "${exe-path}/extscore",  # kit core extensions
     "${exe-path}/../exts",  # isaac extensions
