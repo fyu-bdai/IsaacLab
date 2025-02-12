@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+from collections.abc import Callable
 from dataclasses import MISSING
 from typing import Literal
 
@@ -27,6 +28,23 @@ class RslRlPpoActorCriticCfg:
 
     activation: str = MISSING
     """The activation function for the actor and critic networks."""
+
+
+@configclass
+class RslRlPpoActorCriticRecurrentCfg(RslRlPpoActorCriticCfg):
+    """Configuration for the PPO actor-critic recurrent networks."""
+
+    class_name: str = "ActorCriticRecurrent"
+    """The policy class name. Default is ActorCriticRecurrent."""
+
+    rnn_type: str = "lstm"
+    """Type of cell in recurrent neural network. Options include 'lstm' and 'gru'."""
+
+    rnn_hidden_size: int = 256
+    """Dimension size of each cell in recurrent neural network."""
+
+    rnn_num_layers: int = 1
+    """Number of hidden layers in recurrent neural network."""
 
 
 @configclass
@@ -71,6 +89,14 @@ class RslRlPpoAlgorithmCfg:
 
     max_grad_norm: float = MISSING
     """The maximum gradient norm."""
+
+
+@configclass
+class RslRlPpoSymmetryAugAlgorithmCfg(RslRlPpoAlgorithmCfg):
+    """Configuration for the PPO algorithm with symmetry augmentation."""
+
+    symmetry_augmentation_func: Callable | None = None
+    """The function used for data augmentation. Defaults to None, in which case no symmetry is used."""
 
 
 @configclass

@@ -164,4 +164,4 @@ If you implement a new wrapper, please consider contributing it to the framework
 .. _Stable-Baselines3: https://stable-baselines3.readthedocs.io/en/master/
 .. _SKRL: https://skrl.readthedocs.io
 .. _RL-Games: https://github.com/Denys88/rl_games
-.. _RSL-RL: https://github.com/leggedrobotics/rsl_rl
+.. _RSL-RL: https://github.com/bdaiinstitute/rsl_rl

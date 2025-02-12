@@ -145,6 +145,10 @@ class TestCircularBuffer(unittest.TestCase):
 
     def test_return_buffer_prop(self):
         """Test retrieving the whole buffer for correct size and contents.
+<<<<<<< HEAD
+=======
+
+>>>>>>> upstream/main
         Returning the whole buffer should have the shape [batch_size,max_len,data.shape[1:]]
         """
         num_overflow = 2

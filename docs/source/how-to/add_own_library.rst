@@ -20,7 +20,7 @@ For instance, if you want to use your own modified version of the `rsl-rl`_ libr
 
    .. code-block:: bash
 
-     git clone git@github.com:leggedrobotics/rsl_rl.git
+     git clone git@github.com:bdaiinstitute/rsl_rl.git
 
 
 3. Install the library in your Python environment:
@@ -49,7 +49,7 @@ For instance, if you cloned the library to ``/home/user/git/rsl_rl``, the output
   Name: rsl_rl
   Version: 2.0.2
   Summary: Fast and simple RL algorithms implemented in pytorch
-  Home-page: https://github.com/leggedrobotics/rsl_rl
+  Home-page: https://github.com/bdaiinstitute/rsl_rl
   Author: ETH Zurich, NVIDIA CORPORATION
   Author-email:
   License: BSD-3
@@ -88,4 +88,4 @@ works as expected and can guide users on how to use the wrapper.
 * Add some documentation for the wrapper. You can add the API documentation to the
   ``docs/source/api/lab_tasks/omni.isaac.lab_tasks.utils.wrappers.rst`` file.
 
-.. _rsl-rl: https://github.com/leggedrobotics/rsl_rl
+.. _rsl-rl: https://github.com/bdaiinstitute/rsl_rl

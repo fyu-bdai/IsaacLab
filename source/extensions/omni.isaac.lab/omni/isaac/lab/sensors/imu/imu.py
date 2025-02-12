@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Copyright (c) 2022-2025, The Isaac Lab Project Developers.
+=======
+# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+>>>>>>> upstream/main
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -25,6 +29,7 @@ if TYPE_CHECKING:
 
 
 class Imu(SensorBase):
+<<<<<<< HEAD
     """The Inertia Measurement Unit (IMU) sensor.
 
     The sensor can be attached to any :class:`RigidObject` or :class:`Articulation` in the scene. The sensor provides complete state information.
@@ -45,6 +50,14 @@ class Imu(SensorBase):
         root of a fixed based articulation). The use frames with fixed joints and small mass/inertia to emulate a transform
         relative to a body frame can result in lower performance and accuracy.
 
+=======
+    """The inertia measurement unit sensor.
+
+    The sensor can be attached to any :class:`RigidObject` or :class:`Articulation` in the scene. The sensor provides the linear acceleration and angular
+    velocity of the object in the body frame. The sensor also provides the orientation of the object in the world frame.
+
+    NOTE: sensor data will read zero acceleration if update has not been called yet.
+>>>>>>> upstream/main
     """
 
     cfg: ImuCfg
@@ -141,11 +154,14 @@ class Imu(SensorBase):
 
     def _update_buffers_impl(self, env_ids: Sequence[int]):
         """Fills the buffers of the sensor data."""
+<<<<<<< HEAD
         # check if self._dt is set (this is set in the update function)
         if not hasattr(self, "_dt"):
             raise RuntimeError(
                 "The update function must be called before the data buffers are accessed the first time."
             )
+=======
+>>>>>>> upstream/main
         # default to all sensors
         if len(env_ids) == self._num_envs:
             env_ids = slice(None)
@@ -157,20 +173,37 @@ class Imu(SensorBase):
         self._data.pos_w[env_ids] = pos_w + math_utils.quat_rotate(quat_w, self._offset_pos_b[env_ids])
         self._data.quat_w[env_ids] = math_utils.quat_mul(quat_w, self._offset_quat_b[env_ids])
 
+<<<<<<< HEAD
         # get the offset from COM to link origin
         com_pos_b = self._view.get_coms().to(self.device).split([3, 4], dim=-1)[0]
 
+=======
+>>>>>>> upstream/main
         # obtain the velocities of the link COM
         lin_vel_w, ang_vel_w = self._view.get_velocities()[env_ids].split([3, 3], dim=-1)
         # if an offset is present or the COM does not agree with the link origin, the linear velocity has to be
         # transformed taking the angular velocity into account
         lin_vel_w += torch.linalg.cross(
+<<<<<<< HEAD
             ang_vel_w, math_utils.quat_rotate(quat_w, self._offset_pos_b[env_ids] - com_pos_b[env_ids]), dim=-1
         )
 
         # numerical derivative
         lin_acc_w = (lin_vel_w - self._prev_lin_vel_w[env_ids]) / self._dt + self._gravity_bias_w[env_ids]
         ang_acc_w = (ang_vel_w - self._prev_ang_vel_w[env_ids]) / self._dt
+=======
+            ang_vel_w, math_utils.quat_rotate(quat_w, self._offset_pos_b[env_ids] - self._com_pos_b[env_ids]), dim=-1
+        )
+
+        # numerical derivative
+        if not hasattr(self, "_dt"):
+            lin_acc_w = torch.zeros_like(lin_vel_w) + self._gravity_bias_w[env_ids]
+            ang_acc_w = torch.zeros_like(ang_vel_w)
+        else:
+            lin_acc_w = (lin_vel_w - self._prev_lin_vel_w[env_ids]) / self._dt + self._gravity_bias_w[env_ids]
+            ang_acc_w = (ang_vel_w - self._prev_ang_vel_w[env_ids]) / self._dt
+
+>>>>>>> upstream/main
         # store the velocities
         self._data.lin_vel_b[env_ids] = math_utils.quat_rotate_inverse(self._data.quat_w[env_ids], lin_vel_w)
         self._data.ang_vel_b[env_ids] = math_utils.quat_rotate_inverse(self._data.quat_w[env_ids], ang_vel_w)
@@ -187,16 +220,30 @@ class Imu(SensorBase):
         self._data.pos_w = torch.zeros(self._view.count, 3, device=self._device)
         self._data.quat_w = torch.zeros(self._view.count, 4, device=self._device)
         self._data.quat_w[:, 0] = 1.0
+<<<<<<< HEAD
         self._data.lin_vel_b = torch.zeros_like(self._data.pos_w)
         self._data.ang_vel_b = torch.zeros_like(self._data.pos_w)
         self._data.lin_acc_b = torch.zeros_like(self._data.pos_w)
         self._data.ang_acc_b = torch.zeros_like(self._data.pos_w)
         self._prev_lin_vel_w = torch.zeros_like(self._data.pos_w)
         self._prev_ang_vel_w = torch.zeros_like(self._data.pos_w)
+=======
+        self._data.lin_vel_b = torch.zeros(self._view.count, 3, device=self._device)
+        self._data.ang_vel_b = torch.zeros(self._view.count, 3, device=self._device)
+        self._data.lin_acc_b = torch.zeros(self._view.count, 3, device=self._device)
+        self._data.ang_acc_b = torch.zeros(self._view.count, 3, device=self._device)
+        self._prev_lin_vel_w = torch.zeros(self._view.count, 3, device=self._device)
+        self._prev_ang_vel_w = torch.zeros(self._view.count, 3, device=self._device)
+>>>>>>> upstream/main
 
         # store sensor offset transformation
         self._offset_pos_b = torch.tensor(list(self.cfg.offset.pos), device=self._device).repeat(self._view.count, 1)
         self._offset_quat_b = torch.tensor(list(self.cfg.offset.rot), device=self._device).repeat(self._view.count, 1)
+<<<<<<< HEAD
+=======
+        # get the offset from COM to link origin
+        self._com_pos_b = self._view.get_coms().to(self.device).split([3, 4], dim=-1)[0]
+>>>>>>> upstream/main
         # set gravity bias
         self._gravity_bias_w = torch.tensor(list(self.cfg.gravity_bias), device=self._device).repeat(
             self._view.count, 1
@@ -238,6 +285,10 @@ class Imu(SensorBase):
                 device=self._device,
             )
         )
+<<<<<<< HEAD
         quat_w = math_utils.convert_camera_frame_orientation_convention(quat_opengl, "opengl", "world")
+=======
+        quat_w = math_utils.convert_orientation_convention(quat_opengl, "opengl", "world")
+>>>>>>> upstream/main
         # display markers
         self.acceleration_visualizer.visualize(base_pos_w, quat_w, arrow_scale)

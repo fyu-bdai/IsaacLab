@@ -41,11 +41,14 @@ def class_to_dict(obj: object) -> dict[str, Any]:
     # convert object to dictionary
     if isinstance(obj, dict):
         obj_dict = obj
+<<<<<<< HEAD
     elif isinstance(obj, torch.Tensor):
         # We have to treat torch tensors specially because `torch.tensor.__dict__` returns an empty
         # dict, which would mean that a torch.tensor would be stored as an empty dict. Instead we
         # want to store it directly as the tensor.
         return obj
+=======
+>>>>>>> upstream/main
     elif hasattr(obj, "__dict__"):
         obj_dict = obj.__dict__
     else:
@@ -63,7 +66,10 @@ def class_to_dict(obj: object) -> dict[str, Any]:
         # check if attribute is a dictionary
         elif hasattr(value, "__dict__") or isinstance(value, dict):
             data[key] = class_to_dict(value)
+<<<<<<< HEAD
         # check if attribute is a list or tuple
+=======
+>>>>>>> upstream/main
         elif isinstance(value, (list, tuple)):
             data[key] = type(value)([class_to_dict(v) for v in value])
         else:

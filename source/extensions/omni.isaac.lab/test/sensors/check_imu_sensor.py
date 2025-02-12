@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Copyright (c) 2022-2025, The Isaac Lab Project Developers.
+=======
+# Copyright (c) 2022-2024, The Isaac Lab Project Developers.
+>>>>>>> upstream/main
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -151,8 +155,13 @@ def main():
     # Get the ball initial positions
     sim.step(render=not args_cli.headless)
     balls.update(sim.get_physics_dt())
+<<<<<<< HEAD
     ball_initial_positions = balls.data.root_link_pos_w.clone()
     ball_initial_orientations = balls.data.root_link_quat_w.clone()
+=======
+    ball_initial_positions = balls.data.root_pos_w.clone()
+    ball_initial_orientations = balls.data.root_quat_w.clone()
+>>>>>>> upstream/main
 
     # Create a counter for resetting the scene
     step_count = 0
@@ -168,7 +177,11 @@ def main():
         # Reset the scene
         if step_count % 500 == 0:
             # reset ball positions
+<<<<<<< HEAD
             balls.write_root_link_pose_to_sim(torch.cat([ball_initial_positions, ball_initial_orientations], dim=-1))
+=======
+            balls.write_root_pose_to_sim(torch.cat([ball_initial_positions, ball_initial_orientations], dim=-1))
+>>>>>>> upstream/main
             balls.reset()
             # reset the sensor
             imu.reset()

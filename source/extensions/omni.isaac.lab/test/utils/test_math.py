@@ -266,6 +266,26 @@ class TestMathUtilities(unittest.TestCase):
                     # Check that the wrapped angle is close to the expected value
                     torch.testing.assert_close(wrapped_angle, expected_angle)
 
+    def test_yaw_quat(self):
+        """
+        Test for yaw_quat methods.
+        """
+        # 90-degree (n/2 radians) rotations about the Y-axis
+        quat_input = torch.Tensor([0.7071, 0, 0.7071, 0])
+        cloned_quat_input = quat_input.clone()
+
+        # Calculated output that the function should return
+        expected_output = torch.Tensor([1, 0, 0, 0])
+
+        # Compute the result using the existing implementation
+        result = math_utils.yaw_quat(quat_input)
+
+        # Verify original quat is not being modified
+        torch.testing.assert_close(quat_input, cloned_quat_input)
+
+        # check that the output is equivalent to the expected output
+        torch.testing.assert_close(result, expected_output)
+
     def test_quat_rotate_and_quat_rotate_inverse(self):
         """Test for quat_rotate and quat_rotate_inverse methods.
 
@@ -434,6 +454,30 @@ class TestMathUtilities(unittest.TestCase):
 
             # Assert that the output is close to the expected result
             torch.testing.assert_close(orthogonal_depth, expected_orthogonal_depth)
+
+    def test_convention_converter(self):
+        quat_ros = torch.tensor([[-0.17591989, 0.33985114, 0.82047325, -0.42470819]])
+        quat_opengl = torch.tensor([[0.33985113, 0.17591988, 0.42470818, 0.82047324]])
+        quat_world = torch.tensor([[-0.3647052, -0.27984815, -0.1159169, 0.88047623]])
+
+        # from ROS
+        torch.testing.assert_close(math_utils.convert_orientation_convention(quat_ros, "ros", "opengl"), quat_opengl)
+        torch.testing.assert_close(math_utils.convert_orientation_convention(quat_ros, "ros", "world"), quat_world)
+        torch.testing.assert_close(math_utils.convert_orientation_convention(quat_ros, "ros", "ros"), quat_ros)
+        # from OpenGL
+        torch.testing.assert_close(math_utils.convert_orientation_convention(quat_opengl, "opengl", "ros"), quat_ros)
+        torch.testing.assert_close(
+            math_utils.convert_orientation_convention(quat_opengl, "opengl", "world"), quat_world
+        )
+        torch.testing.assert_close(
+            math_utils.convert_orientation_convention(quat_opengl, "opengl", "opengl"), quat_opengl
+        )
+        # from World
+        torch.testing.assert_close(math_utils.convert_orientation_convention(quat_world, "world", "ros"), quat_ros)
+        torch.testing.assert_close(
+            math_utils.convert_orientation_convention(quat_world, "world", "opengl"), quat_opengl
+        )
+        torch.testing.assert_close(math_utils.convert_orientation_convention(quat_world, "world", "world"), quat_world)
 
 
 if __name__ == "__main__":

@@ -49,9 +49,7 @@ Guidelines for modifications:
 * Giulio Romualdi
 * Haoran Zhou
 * HoJin Jeon
-* Hongwei Xiong
-* Iretiayo Akinola
-* Jan Kerner
+* Harsh Patel
 * Jean Tampon
 * Jia Lin Yuan
 * Jinghuan Shang
@@ -86,6 +84,8 @@ Guidelines for modifications:
 * Yujian Zhang
 * Zhengyu Zhang
 * Ziqi Fan
+* Qian Wan
+* Sina Mirrazavi
 
 ## Acknowledgements
 

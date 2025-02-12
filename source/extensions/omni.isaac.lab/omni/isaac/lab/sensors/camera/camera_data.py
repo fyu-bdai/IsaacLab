@@ -7,7 +7,11 @@ import torch
 from dataclasses import dataclass
 from typing import Any
 
+<<<<<<< HEAD
 from omni.isaac.lab.utils.math import convert_camera_frame_orientation_convention
+=======
+from omni.isaac.lab.utils.math import convert_orientation_convention
+>>>>>>> upstream/main
 
 
 @dataclass

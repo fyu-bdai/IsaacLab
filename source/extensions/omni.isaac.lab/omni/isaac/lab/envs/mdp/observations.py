@@ -17,8 +17,11 @@ from typing import TYPE_CHECKING
 import omni.isaac.lab.utils.math as math_utils
 from omni.isaac.lab.assets import Articulation, RigidObject
 from omni.isaac.lab.managers import SceneEntityCfg
+<<<<<<< HEAD
 from omni.isaac.lab.managers.manager_base import ManagerTermBase
 from omni.isaac.lab.managers.manager_term_cfg import ObservationTermCfg
+=======
+>>>>>>> upstream/main
 from omni.isaac.lab.sensors import Camera, Imu, RayCaster, RayCasterCamera, TiledCamera
 
 if TYPE_CHECKING:
@@ -96,6 +99,59 @@ def root_ang_vel_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntity
     return asset.data.root_com_ang_vel_w
 
 
+def link_pose(
+    env: ManagerBasedEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    link_name: str | None = None,
+) -> torch.Tensor:
+    """The link pose of the asset w.r.t the env.scene.origin.
+
+    Args:
+        env: The environment.
+        asset_cfg: The SceneEntity associated with this observation.
+        link_name: The specific name of the link in the asset to extract, defaults to base link of Articulation.
+
+    Returns:
+        The pose of link_name with shape [num_env, 7]. Output order is [x,y,z,qw,qx,qy,qz].
+    """
+    # extract the used quantities (to enable type-hinting)
+    asset: Articulation = env.scene[asset_cfg.name]
+
+    if link_name is None:
+        link_name = asset.body_names[0]  # set body name as the base link
+    link_id = asset.body_names.index(link_name)
+    pose = asset.data.body_state_w[:, link_id, :7]
+    pose[:, :3] = pose[:, :3] - env.scene.env_origins
+    return pose
+
+
+def link_projected_gravity(
+    env: ManagerBasedEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    link_name: str | None = None,
+) -> torch.Tensor:
+    """The direction of gravity projected on to link_name of an Articulation defined in asset_cfg.
+
+    Args:
+        env: The environment.
+        asset_cfg: The Articulation associated with this observation.
+        link_name: The specific name of the link in the asset to extract, defaults to base link of Articulation.
+
+    Returns:
+        The unit vector direction of gravity projected onto link_name's frame.
+    """
+    # extract the used quantities (to enable type-hinting)
+    asset: Articulation = env.scene[asset_cfg.name]
+    if link_name is not None:
+        body_id = asset.body_names.index(link_name)
+    else:
+        # default to 0th link, which is the base link
+        body_id = 0
+    body_quat = asset.data.body_quat_w[:, body_id]
+    gravity_dir = asset.data.GRAVITY_VEC_W
+    return math_utils.quat_rotate_inverse(body_quat, gravity_dir).view(-1)
+
+
 """
 Joint state.
 """
@@ -157,6 +213,22 @@ def joint_vel_rel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityC
     return asset.data.joint_vel[:, asset_cfg.joint_ids] - asset.data.default_joint_vel[:, asset_cfg.joint_ids]
 
 
+def joint_effort(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """The joint applied effort of the robot.
+    NOTE: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their effort returned.
+
+    Args:
+        env: The environment.
+        asset_cfg: The SceneEntity associated with this observation.
+
+    Returns:
+        The joint effort (N or N-m) for joint_names in asset_cfg, shape is [num_env,num_joints].
+    """
+    # extract the used quantities (to enable type-hinting)
+    asset: Articulation = env.scene[asset_cfg.name]
+    return asset.data.applied_torque[:, asset_cfg.joint_ids]
+
+
 """
 Sensors.
 """
@@ -181,7 +253,7 @@ def body_incoming_wrench(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> tor
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
     # obtain the link incoming forces in world frame
-    link_incoming_forces = asset.root_physx_view.get_link_incoming_joint_force()[:, asset_cfg.body_ids]
+    link_incoming_forces = asset.data.body_joint_reaction_wrench_b[:, asset_cfg.body_ids]
     return link_incoming_forces.view(env.num_envs, -1)
 
 
@@ -280,6 +352,7 @@ def image(
     return images.clone()
 
 
+<<<<<<< HEAD
 class image_features(ManagerTermBase):
     """Extracted image features from a pre-trained frozen encoder.
 
@@ -502,6 +575,48 @@ class image_features(ManagerTermBase):
 
         # return the model, preprocess and inference functions
         return {"model": _load_model, "inference": _inference}
+=======
+def imu_orientation(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("imu")) -> torch.Tensor:
+    """Imu sensor orientation w.r.t the env.scene.origin.
+
+    Args:
+        env: The environment.
+        asset_cfg: The SceneEntity associated with an Imu sensor.
+
+    Returns:
+        Orientation quaternion (wxyz), shape of torch.tensor is (num_env,4).
+    """
+    asset: Imu = env.scene[asset_cfg.name]
+    return asset.data.quat_w
+
+
+def imu_ang_vel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("imu")) -> torch.Tensor:
+    """Imu sensor angular velocity w.r.t. env.scene.origin expressed in the sensor frame.
+
+    Args:
+        env: The environment.
+        asset_cfg: The SceneEntity associated with an Imu sensor.
+
+    Returns:
+        Angular velocity (rad/s), shape of torch.tensor is (num_env,3).
+    """
+    asset: Imu = env.scene[asset_cfg.name]
+    return asset.data.ang_vel_b
+
+
+def imu_lin_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("imu")) -> torch.Tensor:
+    """Imu sensor linear acceleration w.r.t. env.scene.origin expressed in sensor frame.
+
+    Args:
+        env: The environment.
+        asset_cfg: The SceneEntity associated with an Imu sensor.
+
+    Returns:
+        linear acceleration (m/s^2), shape of torch.tensor is (num_env,3).
+    """
+    asset: Imu = env.scene[asset_cfg.name]
+    return asset.data.lin_acc_b
+>>>>>>> upstream/main
 
 
 """

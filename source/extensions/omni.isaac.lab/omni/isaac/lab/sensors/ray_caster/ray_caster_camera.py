@@ -169,7 +169,11 @@ class RayCasterCamera(RayCaster):
         - :obj:`"ros"`    - forward axis: +Z - up axis -Y - Offset is applied in the ROS convention
         - :obj:`"world"`  - forward axis: +X - up axis +Z - Offset is applied in the World Frame convention
 
+<<<<<<< HEAD
         See :meth:`omni.isaac.lab.utils.maths.convert_camera_frame_orientation_convention` for more details
+=======
+        See :meth:`omni.isaac.lab.utils.maths.convert_orientation_convention` for more details
+>>>>>>> upstream/main
         on the conventions.
 
         Args:
@@ -195,9 +199,13 @@ class RayCasterCamera(RayCaster):
             self._offset_pos[env_ids] = math_utils.quat_apply(math_utils.quat_inv(quat_w), pos_offset_world_frame)
         if orientations is not None:
             # convert rotation matrix from input convention to world
+<<<<<<< HEAD
             quat_w_set = math_utils.convert_camera_frame_orientation_convention(
                 orientations, origin=convention, target="world"
             )
+=======
+            quat_w_set = math_utils.convert_orientation_convention(orientations, origin=convention, target="world")
+>>>>>>> upstream/main
             self._offset_quat[env_ids] = math_utils.quat_mul(math_utils.quat_inv(quat_w), quat_w_set)
 
         # update the data
@@ -248,7 +256,11 @@ class RayCasterCamera(RayCaster):
         # create buffer to store ray hits
         self.ray_hits_w = torch.zeros(self._view.count, self.num_rays, 3, device=self._device)
         # set offsets
+<<<<<<< HEAD
         quat_w = math_utils.convert_camera_frame_orientation_convention(
+=======
+        quat_w = math_utils.convert_orientation_convention(
+>>>>>>> upstream/main
             torch.tensor([self.cfg.offset.rot], device=self._device), origin=self.cfg.offset.convention, target="world"
         )
         self._offset_quat = quat_w.repeat(self._view.count, 1)

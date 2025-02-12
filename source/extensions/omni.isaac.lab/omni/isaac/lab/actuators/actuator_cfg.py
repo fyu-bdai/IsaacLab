@@ -186,3 +186,23 @@ class RemotizedPDActuatorCfg(DelayedPDActuatorCfg):
     This tensor describes the relationship between the joint angle (rad), the transmission ratio (in/out),
     and the output torque (N*m). The table is used to interpolate the output torque based on the joint angle.
     """
+
+
+@configclass
+class DelayedDCMotorCfg(IdealPDActuatorCfg):
+    """Configuration for a delayed PD actuator."""
+
+    class_type: type = actuator_pd.DelayedDCMotor
+
+    saturation_effort: float = MISSING
+    """Peak motor force/torque of the electric DC motor (in N-m)."""
+
+    min_delay: int = 0
+    """Minimum number of physics time-steps with which the actuator command may be delayed. Defaults to 0."""
+
+    max_delay: int = 0
+    """Maximum number of physics time-steps with which the actuator command may be delayed. Defaults to 0."""
+
+    motor_strength: tuple[float, float] = (1.0, 1.0)
+    """The strength of the motor which is characterized by the motor torque. Defaults to (1.0, 1.0).
+    The final applied torque will be scaled with a value between the range of the tuple."""

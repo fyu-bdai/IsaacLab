@@ -217,9 +217,15 @@ class ManagerBasedRLEnv(ManagerBasedEnv, gym.Env):
             self.recorder_manager.record_pre_reset(reset_env_ids)
 
             self._reset_idx(reset_env_ids)
+<<<<<<< HEAD
             # update articulation kinematics
             self.scene.write_data_to_sim()
             self.sim.forward()
+=======
+
+            # this is needed to make joint positions set from reset events effective
+            self.scene.write_data_to_sim()
+>>>>>>> upstream/main
 
             # if sensors are added to the scene, make sure we render to reflect changes in reset
             if self.sim.has_rtx_sensors() and self.cfg.rerender_on_reset:
@@ -349,10 +355,10 @@ class ManagerBasedRLEnv(ManagerBasedEnv, gym.Env):
         Args:
             env_ids: List of environment ids which must be reset
         """
-        # update the curriculum for environments that need a reset
-        self.curriculum_manager.compute(env_ids=env_ids)
         # reset the internal buffers of the scene elements
         self.scene.reset(env_ids)
+        # update the curriculum for environments that need a reset
+        self.curriculum_manager.compute(env_ids=env_ids)
         # apply events such as randomizations for environments that need a reset
         if "reset" in self.event_manager.available_modes:
             env_step_count = self._sim_step_counter // self.cfg.decimation

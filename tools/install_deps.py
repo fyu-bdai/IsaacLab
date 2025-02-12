@@ -34,10 +34,33 @@ import toml
 from subprocess import run
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="A utility to install dependencies based on extension.toml files.")
-parser.add_argument("type", type=str, choices=["all", "apt", "rosdep"], help="The type of packages to install.")
-parser.add_argument("extensions_dir", type=str, help="The path to the directory containing extensions.")
-parser.add_argument("--ros_distro", type=str, default="humble", help="The ROS distribution to use for rosdep.")
+parser = argparse.ArgumentParser(description="Utility to install dependencies based on an extension.toml")
+parser.add_argument(
+    "type",
+    type=str,
+    choices=["all", "apt", "rosdep"],
+    help="The type of packages to install",
+)
+parser.add_argument(
+    "extensions_dir",
+    type=str,
+    help="The path to the directory beneath which we search for extensions",
+)
+parser.add_argument(
+    "--allow-failure",
+    action="store_true",
+    default=False,
+    help="Whether to continue with the process if an error occurs.",
+)
+parser.add_argument(
+    "--single-ext",
+    action="store_true",
+    default=False,
+    help=(
+        "Whether the extensions_dir is the direct path to a single extension.         The default behavior assumes the"
+        " extensions are one level below extensions_dir."
+    ),
+)
 
 
 def install_apt_packages(paths: list[str]):
@@ -59,10 +82,11 @@ def install_apt_packages(paths: list[str]):
         if shutil.which("apt"):
             # Check if the extension.toml file exists
             if not os.path.exists(f"{path}/config/extension.toml"):
-                raise FileNotFoundError(
-                    "During the installation of 'apt' dependencies, unable to find a"
-                    f" valid file at: {path}/config/extension.toml."
+                print(
+                    f"[WARN] Unable to find a valid file at: {path}/config/extension.toml."
+                    "Skipping the installation of apt packages for this extension."
                 )
+                continue
             # Load the extension.toml file and check for apt_deps
             with open(f"{path}/config/extension.toml") as fd:
                 ext_toml = toml.load(fd)
@@ -78,16 +102,10 @@ def install_apt_packages(paths: list[str]):
 
 
 def install_rosdep_packages(paths: list[str], ros_distro: str = "humble"):
-    """Installs ROS dependencies listed in the extension.toml file for Isaac Lab extensions.
-
-    For each path in the input list of paths, the function looks in ``{path}/config/extension.toml`` for
-    the ``[isaac_lab_settings][ros_ws]`` key. It then attempts to install the ROS dependencies under the workspace
-    listed in the value of the key. The function exits on failure to stop the build process from continuing despite
-    missing dependencies.
-
-    If the path to the ROS workspace is not absolute, the function assumes that the path is relative to the extension
-    root and resolves it accordingly. The function also checks if the ROS workspace exists before proceeding with
-    the installation of ROS dependencies. If the ROS workspace does not exist, the function raises an error.
+    """Attempts to install rosdep packages for Isaac Lab extensions.
+    For each path in arg paths, it looks in {extension_root}/config/extension.toml for [isaac_lab_settings][ros_ws]
+    and then attempts to install all rosdeps u --allow-failurender that workspace.
+    Exits on failure to stop the build process from continuing despite missing dependencies.
 
     Args:
         path: A list of paths to the extension roots.
@@ -102,10 +120,11 @@ def install_rosdep_packages(paths: list[str], ros_distro: str = "humble"):
         if shutil.which("rosdep"):
             # Check if the extension.toml file exists
             if not os.path.exists(f"{path}/config/extension.toml"):
-                raise FileNotFoundError(
-                    "During the installation of 'rosdep' dependencies, unable to find a"
-                    f" valid file at: {path}/config/extension.toml."
+                print(
+                    f"[WARN] Unable to find a valid file at: {path}/config/extension.toml."
+                    "Skipping the installation of rosdep packages for this extension."
                 )
+                continue
             # Load the extension.toml file and check for ros_ws
             with open(f"{path}/config/extension.toml") as fd:
                 ext_toml = toml.load(fd)
@@ -159,18 +178,26 @@ def main():
     # Parse the command line arguments
     args = parser.parse_args()
     # Get immediate children of args.extensions_dir
-    extension_paths = [os.path.join(args.extensions_dir, x) for x in next(os.walk(args.extensions_dir))[1]]
-
-    # Install dependencies based on the type
-    if args.type == "all":
-        install_apt_packages(extension_paths)
-        install_rosdep_packages(extension_paths, args.ros_distro)
-    elif args.type == "apt":
-        install_apt_packages(extension_paths)
-    elif args.type == "rosdep":
-        install_rosdep_packages(extension_paths, args.ros_distro)
+    if args.single_ext:
+        extension_paths = [args.extensions_dir]
     else:
-        raise ValueError(f"'Invalid dependency type: '{args.type}'. Available options: ['all', 'apt', 'rosdep'].")
+        extension_paths = [os.path.join(args.extensions_dir, x) for x in next(os.walk(args.extensions_dir))[1]]
+    try:
+        if args.type == "all":
+            install_apt_packages(extension_paths)
+            install_rosdep_packages(extension_paths)
+        elif args.type == "apt":
+            install_apt_packages(extension_paths)
+        elif args.type == "rosdep":
+            install_rosdep_packages(extension_paths)
+        else:
+            raise ValueError(f"'Invalid type dependency: '{args.type}'. Available options: ['all', 'apt', 'rosdep'].")
+    except Exception as e:
+        if args.allow_failure:
+            print(e)
+            pass
+        else:
+            raise e
 
 
 if __name__ == "__main__":

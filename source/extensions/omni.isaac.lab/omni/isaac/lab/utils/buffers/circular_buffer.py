@@ -78,8 +78,15 @@ class CircularBuffer:
     @property
     def buffer(self) -> torch.Tensor:
         """Complete circular buffer with most recent entry at the end and oldest entry at the beginning.
+<<<<<<< HEAD
         Returns:
             Complete circular buffer with most recent entry at the end and oldest entry at the beginning of dimension 1. The shape is [batch_size, max_length, data.shape[1:]].
+=======
+
+        Returns:
+            Complete circular buffer with most recent entry at the end and oldest entry at the beginning of dimension 1. The shape is [batch_size, max_length, data.shape[1:]].
+
+>>>>>>> upstream/main
         """
         buf = self._buffer.clone()
         buf = torch.roll(buf, shifts=self.max_length - self._pointer - 1, dims=0)
@@ -121,7 +128,7 @@ class CircularBuffer:
         # at the first call, initialize the buffer size
         if self._buffer is None:
             self._pointer = -1
-            self._buffer = torch.empty((self.max_length, *data.shape), dtype=data.dtype, device=self._device)
+            self._buffer = torch.zeros((self.max_length, *data.shape), dtype=data.dtype, device=self._device)
         # move the head to the next slot
         self._pointer = (self._pointer + 1) % self.max_length
         # add the new data to the last layer

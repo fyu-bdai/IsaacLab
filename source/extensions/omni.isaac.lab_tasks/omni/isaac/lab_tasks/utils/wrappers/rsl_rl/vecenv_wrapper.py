@@ -40,7 +40,7 @@ class RslRlVecEnvWrapper(VecEnv):
         wrapper.
 
     Reference:
-        https://github.com/leggedrobotics/rsl_rl/blob/master/rsl_rl/env/vec_env.py
+        https://github.com/bdaiinstitute/rsl_rl/blob/master/rsl_rl/env/vec_env.py
     """
 
     def __init__(self, env: ManagerBasedRLEnv | DirectRLEnv):
